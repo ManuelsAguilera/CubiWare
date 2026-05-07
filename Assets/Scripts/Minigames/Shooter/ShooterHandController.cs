@@ -13,6 +13,9 @@ namespace ARcadeRush.Minigames.Shooter
     [RequireComponent(typeof(Hand3DProjector), typeof(GestureDetector))]
     public class ShooterHandController : MonoBehaviour
     {
+        [Header("Gun Visual")]
+        [SerializeField] private GunController _gunController;
+
         [Header("Aiming")]
         [SerializeField] private float _maxRayDistance = 50f;
         [SerializeField] private LayerMask _targetLayer;
@@ -34,6 +37,9 @@ namespace ARcadeRush.Minigames.Shooter
         private bool _safetyOn;
         private float _lastFireTime;
         private bool _canFire = true;
+
+        /// <summary>Target world point the gun should look at (computed from aim ray).</summary>
+        private Vector3 _aimTargetPoint;
 
         /// <summary>Current aim ray direction in world space.</summary>
         public Vector3 AimDirection { get; private set; } = Vector3.forward;
@@ -67,11 +73,18 @@ namespace ARcadeRush.Minigames.Shooter
         private void Update()
         {
             UpdateAimRay();
+
+            // Rotate the gun to face the aim target
+            if (_gunController != null && IsAiming)
+            {
+                _gunController.LookAt(_aimTargetPoint);
+            }
         }
 
         /// <summary>
         /// Computes the aim ray from the index finger tip (landmark 8) forward direction.
         /// Uses the direction from index MCP (landmark 5) to index tip (landmark 8) as the aim vector.
+        /// Also computes a world-space target point for the gun to look at.
         /// </summary>
         private void UpdateAimRay()
         {
@@ -94,6 +107,16 @@ namespace ARcadeRush.Minigames.Shooter
             }
 
             IsAiming = true;
+
+            // Compute world-space target point for the gun
+            if (Physics.Raycast(AimOrigin, AimDirection, out RaycastHit hit, _maxRayDistance, _targetLayer))
+            {
+                _aimTargetPoint = hit.point;
+            }
+            else
+            {
+                _aimTargetPoint = AimOrigin + AimDirection * _maxRayDistance;
+            }
 
             // Debug visualization
             if (_showDebugRay)
@@ -133,6 +156,12 @@ namespace ARcadeRush.Minigames.Shooter
             _lastFireTime = Time.time;
             _canFire = false;
 
+            // Trigger gun visual animation
+            if (_gunController != null)
+            {
+                _gunController.Shoot();
+            }
+
             Vector3 spawnPos = _bulletSpawnPoint != null
                 ? _bulletSpawnPoint.position
                 : AimOrigin;
@@ -159,6 +188,15 @@ namespace ARcadeRush.Minigames.Shooter
 
             // Reset fire cooldown
             Invoke(nameof(ResetFireCooldown), _fireCooldown);
+        }
+
+        /// <summary>Trigger a reload animation on the gun (if assigned).</summary>
+        public void Reload()
+        {
+            if (_gunController != null)
+            {
+                _gunController.Reload();
+            }
         }
 
         private void ResetFireCooldown()
