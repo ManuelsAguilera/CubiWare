@@ -53,12 +53,12 @@ namespace ARcadeRush.Face
         // ── Inspector — Angry ─────────────────────────────────────────────────────
         [Header("Angry — weights")]
         [SerializeField] private float _angryFurrowWeight   = 2.0f;
-        [SerializeField] private float _angryEyeSquintWeight = 0.8f; // low eye openness = squint
-        [SerializeField] private float _angryBrowLowWeight  = 0.5f;  // brow below neutral
+        [SerializeField] private float _angryEyeSquintWeight = 0.5f; // low eye openness = squint
+        [SerializeField] private float _angryBrowLowWeight  = 0.3f;  // brow below neutral
  
         // ── Inspector — Neutral baseline offset ──────────────────────────────────
         [Header("Neutral — base confidence (opponent to all emotions)")]
-        [SerializeField] private float _neutralBaseScore = 0.35f;
+        [SerializeField] private float _neutralBaseScore = 0.50f;
  
         // ── Private state ─────────────────────────────────────────────────────────
         private FaceLandmarkReader _reader;
@@ -105,19 +105,26 @@ namespace ARcadeRush.Face
                 - Mathf.Max(0f, mouthOpen - 0.05f) * _happyMouthPenalty);
  
             // Surprised: jaw drop + wide eyes + brow raise
-            float rawSurp   = Mathf.Max(0f,
-                mouthOpen * _surpMouthWeight
-                + eyeAvg  * _surpEyeWeight
-                + Mathf.Max(0f, browRaise) * _surpBrowRaiseWeight);
+            float rawSurp = Mathf.Max(0f,
+                Mathf.Max(0f, mouthOpen - 0.04f) * _surpMouthWeight
+                + Mathf.Max(0f, eyeAvg  - 0.02f) * _surpEyeWeight
+                + Mathf.Max(0f, browRaise - 0.02f) * _surpBrowRaiseWeight);
  
             // Angry: inner brow furrow + low brow + squinted eyes
             // Eye squint = eye openness BELOW the neutral baseline
             float eyeSquint = Mathf.Max(0f, -eyeAvg); // negative eyeAvg = closed
             float browLow   = Mathf.Max(0f, -browRaise);
-            float rawAngry  = Mathf.Max(0f,
-                furrow    * _angryFurrowWeight
-                + eyeSquint * _angryEyeSquintWeight
-                + browLow   * _angryBrowLowWeight);
+            float rawAngry = Mathf.Max(0f,
+                Mathf.Max(0f, furrow    - 0.15f) * _angryFurrowWeight
+                + Mathf.Max(0f, eyeSquint - 0.10f) * _angryEyeSquintWeight
+                + Mathf.Max(0f, browLow   - 0.05f) * _angryBrowLowWeight);
+            
+            Debug.Log($"[Metrics] mouth={_reader.GetRelativeMetric(0):F3} eyeL={_reader.GetRelativeMetric(1):F3} " +
+            $"eyeR={_reader.GetRelativeMetric(2):F3} brow={_reader.GetRelativeMetric(3):F3} " +
+            $"smile={_reader.GetRelativeMetric(4):F3} furrow={_reader.GetRelativeMetric(5):F3}");
+ 
+            Debug.Log($"[RawScores] N:{rawNeutral:F3} H:{rawHappy:F3} S:{rawSurp:F3} A:{rawAngry:F3} " +
+            $"(furrow={furrow:F3} eyeSquint={eyeSquint:F3} browLow={browLow:F3})");
  
             // ── EMA smoothing of confidence scores ─────────────────────────────
             _confidence[(int)EmotionLabel.Neutral]   = Mathf.Lerp(rawNeutral, _confidence[(int)EmotionLabel.Neutral],   _confidenceEma);
@@ -128,7 +135,8 @@ namespace ARcadeRush.Face
             // ── Pick winning emotion ───────────────────────────────────────────
             EmotionLabel detected = EmotionLabel.Neutral;
             float bestScore = _confidence[(int)EmotionLabel.Neutral];
- 
+
+            
             for (int i = 1; i < _confidence.Length; i++)
             {
                 if (_confidence[i] > bestScore)
@@ -142,7 +150,7 @@ namespace ARcadeRush.Face
             if (detected == _candidateEmotion)
             {
                 _candidateHoldTime += Time.deltaTime;
-                if (_candidateHoldTime >= _holdSeconds && _currentEmotion != detected)
+                if (_candidateHoldTime >= _holdSeconds && _currentEmotion != detected && _reader.IsCalibrated)
                 {
                     _currentEmotion = detected;
                     Debug.Log($"[EmotionClassifier] ✓ CONFIRMED: {_currentEmotion} " +
@@ -158,6 +166,9 @@ namespace ARcadeRush.Face
                 Debug.Log($"[EmotionClassifier] → Candidate: {_candidateEmotion} " +
                           $"(smile={smile:F3} mouth={mouthOpen:F3} brow={browRaise:F3} furrow={furrow:F3})");
             }
+
+            Debug.Log($"[Scores] N:{_confidence[0]:F3} H:{_confidence[1]:F3} S:{_confidence[2]:F3} A:{_confidence[3]:F3} | Head:{_reader.HeadConfidence:F2}");           
+
         }
  
         #endregion
