@@ -13,6 +13,12 @@ namespace ARcadeRush.Core
         [SerializeField] private int _cameraIndex = 0;
         [SerializeField] private UnityEngine.UI.RawImage _outputImage;
 
+        // LINUX BROSKI (Cambio vicho)
+        [Header("Camera Resolution Settings")]
+        [SerializeField] private int _requestedWidth = 640;
+        [SerializeField] private int _requestedHeight = 480;
+        [SerializeField] private int _requestedFPS = 30;
+
         public bool DidUpdateThisFrame { get; private set; }
         public bool IsPlaying => _webCamTexture != null && _webCamTexture.isPlaying;
 
@@ -111,8 +117,11 @@ namespace ARcadeRush.Core
                 if (_cameraIndex < 0 || _cameraIndex >= devices.Length)
                     _cameraIndex = 0;
 
-                _webCamTexture = new WebCamTexture(devices[_cameraIndex].name);
+                // Vicho cambio
+                //_webCamTexture = new WebCamTexture(devices[_cameraIndex].name);
                 
+                _webCamTexture = new WebCamTexture(devices[_cameraIndex].name, _requestedWidth, _requestedHeight, _requestedFPS);
+
                 if (_webCamTexture == null)
                     Debug.LogError("[CamFeed] WebCamTexture failed to instantiate!");
                 else
@@ -174,7 +183,10 @@ namespace ARcadeRush.Core
                 _webCamTexture = null;
             }
 
-            _webCamTexture = new WebCamTexture(deviceName);
+            // vicho cambio
+            //_webCamTexture = new WebCamTexture(deviceName);
+            
+            _webCamTexture = new WebCamTexture(deviceName, _requestedWidth, _requestedHeight, _requestedFPS);
             Debug.Log($"[CamFeed] Switched to '{deviceName}' (not started yet)");
 
             // Only auto-start if camera was already running

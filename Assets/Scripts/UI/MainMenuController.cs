@@ -13,9 +13,13 @@ namespace ARcadeRush.UI
         [SerializeField] private Button _startFruitNinjaBtn;
         [SerializeField] private Button _startDirectorBtn;
         [SerializeField] private Button _startSimonBtn;
+        [SerializeField] private Button _startTest2Btn;
 
         private void Start()
         {
+            Debug.Log($"[MainMenu] Buttons assigned: " +
+            $"Test2={_startTest2Btn != null}, " +
+            $"Director={_startDirectorBtn != null}");
             if (_startTestingSceneBtn != null)
             {
                 // Optional testing scene — ensure camera is running before loading.
@@ -43,8 +47,11 @@ namespace ARcadeRush.UI
                 // Scene 2 is MG_Shooter in final Build Settings.
                 _startSimonBtn.onClick.AddListener(() => LoadScene(2));
             }
-
             
+            if (_startTest2Btn != null)
+            {
+                _startTest2Btn.onClick.AddListener(() => LoadScene(4));
+            }
         }
 
         private void LoadScene(int buildIndex)
