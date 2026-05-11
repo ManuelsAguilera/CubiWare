@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using ARcadeRush.Core;
+using ARcadeRush.Minigames.Shooter;
 
 namespace ARcadeRush.UI
 {
@@ -14,6 +16,10 @@ namespace ARcadeRush.UI
         [SerializeField] private Button _startDirectorBtn;
         [SerializeField] private Button _startSimonBtn;
         [SerializeField] private Button _startTest2Btn;
+
+        [Header("Score Display")]
+        [SerializeField] private TMP_Text _lastScoreText;
+        [SerializeField] private string _scorePrefix = "Last Score: ";
 
         private void Start()
         {

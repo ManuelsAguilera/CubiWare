@@ -3,7 +3,7 @@
 > Stored in `docs/` per project convention.  
 > Reference doc: `docs/ARcade Context.md` (v1.0)  
 > Developer guide: `docs/developer-guide.md`  
-> Last updated: 2026-05-06
+> Last updated: 2026-05-10
 
 ---
 
@@ -37,11 +37,14 @@ All scripts in [`Assets/Scripts/Minigames/Shooter/`](Assets/Scripts/Minigames/Sh
 
 | # | File | Description | Status |
 |---|------|-------------|--------|
-| B1 | [`Target.cs`](Assets/Scripts/Minigames/Shooter/Target.cs) | `TargetType` enum (Bandit/Innocent), `OnHit()` awards +10 or -20 via `GameManager.AddScore()` | ✅ |
-| B2 | [`TargetSpawner.cs`](Assets/Scripts/Minigames/Shooter/TargetSpawner.cs) | 3 depth rows (Near z=5, Mid z=12, Far z=20), object pooling (20 pre-warmed), configurable spawn interval/ratio | ✅ |
-| B3 | [`ShooterHandController.cs`](Assets/Scripts/Minigames/Shooter/ShooterHandController.cs) | Index finger tip (landmark 8) aim, ClosedFist fire, ThumbDown safety toggle, bullet/hitscan fallback | ✅ |
-| B4 | [`ShooterGame.cs`](Assets/Scripts/Minigames/Shooter/ShooterGame.cs) | `IMiniGame` implementation, 90s timer, HUD updates, returns to MainMenu on timeout | ✅ |
-| B5 | Modify [`GestureDetector.cs`](Assets/Scripts/Hand/GestureDetector.cs) | Added `GestureType.ThumbDown` + `OnThumbDown` event for safety toggle | ✅ |
+| B1 | [`Target.cs`](Assets/Scripts/Minigames/Shooter/Target.cs) | `TargetType` enum (Bandit/Innocent), wave-based activation, raise/fall animations, timeout, `OnTargetDeactivated` event | ✅ |
+| B2 | [`TargetManager.cs`](Assets/Scripts/Minigames/Shooter/TargetManager.cs) | Scene target discovery, row grouping, round-robin activation, cooldowns | ✅ |
+| B3 | [`ShooterHandController.cs`](Assets/Scripts/Minigames/Shooter/ShooterHandController.cs) | Index finger tip (landmark 8) aim, ClosedFist fire, ThumbDown safety toggle, delegates shoot to GunController | ✅ |
+| B4 | [`ShooterGame.cs`](Assets/Scripts/Minigames/Shooter/ShooterGame.cs) | `IMiniGame` implementation — starts paused, Space to unpause, wave progression, 90s timer, HUD hide on pause, `LastScore` static for MainMenu display | ✅ |
+| B5 | [`GunController.cs`](Assets/Scripts/Minigames/Shooter/GunController.cs) | Hitscan system, ammo management (6 rounds), auto-reload, aim preview, bullet trail, events for scoring/HUD | ✅ |
+| B6 | Modify [`GestureDetector.cs`](Assets/Scripts/Hand/GestureDetector.cs) | Added `GestureType.ThumbDown` + `OnThumbDown` event for safety toggle | ✅ |
+| B7 | [`HUDController.cs`](Assets/Scripts/UI/HUDController.cs) | Added `SetHUDVisible(bool)`, `ShowPauseOverlay(string)`, `HidePauseOverlay()` for pause state management | ✅ |
+| B8 | [`MainMenuController.cs`](Assets/Scripts/UI/MainMenuController.cs) | Added `_lastScoreText` to display `ShooterGame.LastScore` on return from game | ✅ |
 
 ---
 
@@ -139,19 +142,22 @@ Bootstrap.unity (index 0)
               │
               ▼
 MainMenu.unity (index 1)
-  ├── MainMenuController
-  └── Button → "Shooter" → LoadScene(2)
+  ├── MainMenuController (with _lastScoreText for ShooterGame.LastScore)
+  └── Button → "Shooter" → LoadScene(3)
               │
               ▼
 MG_Shooter.unity (index 2)
   ├── ShooterGame (IMiniGame)
-  ├── TargetSpawner
-  │   ├── Bandit prefab (pooled)
-  │   └── Innocent prefab (pooled)
+  │   └── Starts paused → Space to unpause
+  │       └── OnEnd → LastScore static → LoadScene(1)
+  ├── TargetManager
+  │   └── Pre-placed targets with row labels (Easy/Medium/Hard)
+  ├── GunController (hitscan, ammo, auto-reload, aim preview)
   ├── ShooterHandController
   │   ├── Hand3DProjector
   │   └── GestureDetector
-  └── HUDController (timer + score)
+  └── HUDController (timer + score + ammo + pause overlay)
+      └── SetHUDVisible() hides/shows all elements on pause
 ```
 
 ---
