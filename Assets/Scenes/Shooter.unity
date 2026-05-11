@@ -3167,11 +3167,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46af614106ac68e4cbea225f88e21b06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gunController: {fileID: 0}
+  _gunController: {fileID: 231449183}
   _maxRayDistance: 50
   _targetLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 4294967295
   _showDebugRay: 1
   _fireCooldown: 0.3
   _startWithSafetyOn: 1
@@ -3195,7 +3195,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1008226611}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6211d0e11535b0747a135619a75c4c56, type: 3}
   m_Name: 
