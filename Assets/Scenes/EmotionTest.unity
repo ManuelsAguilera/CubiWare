@@ -397,18 +397,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72c235846518016409b79805dc905174, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _holdSeconds: 0.3
-  _minHeadConfidence: 0.5
-  _confidenceEma: 0.75
+  _holdSeconds: 0.2
+  _minHeadConfidence: 0.45
+  _confidenceEma: 0.7
   _happySmileWeight: 2.5
-  _happyMouthPenalty: 1
-  _surpMouthWeight: 1.5
-  _surpEyeWeight: 1
-  _surpBrowRaiseWeight: 0.8
+  _happyMouthPenalty: 1.2
+  _surpMouthWeight: 2
+  _surpEyeWeight: 1.2
+  _surpBrowRaiseWeight: 1.5
   _angryFurrowWeight: 2
-  _angryEyeSquintWeight: 0.8
-  _angryBrowLowWeight: 0.5
-  _neutralBaseScore: 0.35
+  _angryEyeSquintWeight: 1
+  _angryBrowLowWeight: 0.8
+  _neutralBaseScore: 0.25
 --- !u!114 &259732453
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -421,8 +421,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f4ff3637851c04459a39b48d8bededd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _emaAlpha: 0.6
+  _emaAlpha: 0.55
   _calibrationDuration: 2
+  _blendshapeWeight: 0.8
 --- !u!1 &449758483
 GameObject:
   m_ObjectHideFlags: 0
@@ -794,8 +795,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 279.74, y: -184}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 279.74, y: -182}
+  m_SizeDelta: {x: 289.7776, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &806665891
 MonoBehaviour:

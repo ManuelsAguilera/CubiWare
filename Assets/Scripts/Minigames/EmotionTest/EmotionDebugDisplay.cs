@@ -10,6 +10,7 @@ namespace ARcadeRush.Minigames.EmotionTest
     /// Shows: current emotion, metrics, frame count, detection history.
     /// Can be toggled on/off via button.
     /// </summary>
+    
     public class EmotionTestDebugDisplay : MonoBehaviour
     {
         [Header("Debug Text Display")]
