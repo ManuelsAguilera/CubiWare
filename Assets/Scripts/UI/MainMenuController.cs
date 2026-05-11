@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using ARcadeRush.Core;
+using ARcadeRush.Minigames.Shooter;
 
 namespace ARcadeRush.UI
 {
@@ -13,6 +15,10 @@ namespace ARcadeRush.UI
         [SerializeField] private Button _startFruitNinjaBtn;
         [SerializeField] private Button _startDirectorBtn;
         [SerializeField] private Button _startSimonBtn;
+
+        [Header("Score Display")]
+        [SerializeField] private TMP_Text _lastScoreText;
+        [SerializeField] private string _scorePrefix = "Last Score: ";
 
         private void Start()
         {
@@ -44,7 +50,20 @@ namespace ARcadeRush.UI
                 _startSimonBtn.onClick.AddListener(() => LoadScene(2));
             }
 
-            
+            // Display last game score if returning from a completed game
+            if (_lastScoreText != null)
+            {
+                int lastScore = ShooterGame.LastScore;
+                if (lastScore > 0 || ShooterGame.LastScore != 0)
+                {
+                    _lastScoreText.text = $"{_scorePrefix}{lastScore}";
+                    _lastScoreText.gameObject.SetActive(true);
+                }
+                else
+                {
+                    _lastScoreText.gameObject.SetActive(false);
+                }
+            }
         }
 
         private void LoadScene(int buildIndex)

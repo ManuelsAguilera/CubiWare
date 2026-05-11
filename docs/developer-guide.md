@@ -1,6 +1,6 @@
 # ARcade Rush — Developer Guide
 
-> **Last updated:** 2026-05-03  
+> **Last updated:** 2026-05-10
 > **Unity Version:** 2022.3 LTS (URP)  
 > **Scripting Runtime:** .NET Standard 2.1  
 > **Namespace Convention:** `ARcadeRush.{Module}` (e.g. `Core`, `Hand`, `Face`, `UI`, `Minigames.Shoot`)
@@ -335,6 +335,16 @@ In-game heads-up display. Methods:
 - `UpdateTimer(float seconds)` — shows `MM:SS` format
 - `UpdateScore(int score)` — shows current score
 - `ShowEmotion(EmotionLabel label)` — shows detected emotion with color coding
+- `SetHUDVisible(bool)` — toggles all HUD elements (timer, score, ammo, reload indicator, music label, emotion label, wave announcement) — used when pausing/resuming the game
+- `ShowPauseOverlay(string message)` — shows a pause overlay with a custom message (e.g. "PRESS SPACE TO START", "PAUSED")
+- `HidePauseOverlay()` — hides the pause overlay
+
+**New serialized fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `_pauseOverlay` | `GameObject` | Root overlay GameObject shown when game is paused or waiting for first input |
+| `_pauseText` | `TMP_Text` | Text label on the pause overlay to display the pause message |
 
 ### 7.2 DebugTrackerUI
 
@@ -360,9 +370,18 @@ Handles minigame selection. Each button's `onClick` calls `SceneLoader.Instance.
 
 **Serialized fields:**
 ```csharp
-[SerializeField] private Button _startShooterBtn;  // Build index 2
-[SerializeField] private Button _startTestingSceneBtn;  // Build index 3 (optional)
+[SerializeField] private Button _startShooterBtn;  // Build index 3
+[SerializeField] private Button _startTestingSceneBtn;  // Build index 2 (optional)
 ```
+
+**Score display (new):**
+```csharp
+[Header("Score Display")]
+[SerializeField] private TMP_Text _lastScoreText;     // Displays ShooterGame.LastScore
+[SerializeField] private string _scorePrefix = "Last Score: ";
+```
+
+In `Start()`, the controller reads `ShooterGame.LastScore` (static field) and displays it. The label is hidden when no score is available (initial launch). This allows the MainMenu to function as the "Game Over" screen — after the Shooter minigame ends, the player returns to the same MainMenu layout with their last score shown.
 
 ---
 
@@ -479,21 +498,26 @@ MG_Shooter.unity
 ├── Directional Light
 ├── ShooterGameController
 │   └── ShooterGame.cs (IMiniGame implementation)
-├── TargetSpawner
-│   └── TargetSpawner.cs (spawn loop, object pooling)
+├── TargetManager
+│   └── TargetManager.cs (row grouping, round-robin activation)
+├── Targets (parent)
+│   └── Target_Easy/Med/Hard (pre-placed, start disabled)
+├── HUDController (timer + score + ammo + pause overlay)
 └── HandController
     └── ShooterHandController.cs (aim + fire mechanics)
 ```
 
 ### 10.2 Game Flow
 
-1. **Start:** 90-second countdown begins
-2. **Spawning:** Targets appear in 3 rows every 2 seconds
-3. **Aiming:** Player points index finger at targets
-4. **Firing:** Make a fist gesture to shoot
-5. **Safety:** Thumb-down gesture toggles safety mode (yellow ray = safe, red ray = firing)
-6. **Scoring:** Bandit = +10, Innocent = -20
-7. **End:** Timer expires → return to MainMenu
+1. **Start (Paused):** Game loads but starts in a paused state. HUD is hidden. "PRESS SPACE TO START" overlay is shown.
+2. **Unpause:** Player presses Space → `BeginGame()` is called → HUD appears, wave progression begins, 90-second timer starts.
+3. **Spawning:** Targets appear in 3 rows (Easy → Medium → Hard) based on score thresholds.
+4. **Aiming:** Player points index finger at targets.
+5. **Firing:** Make a fist gesture to shoot (or left-click in debug mode).
+6. **Scoring:** Bandit = +5/+10/+20 (per row), Innocent = -10/-10/-15.
+7. **Pause:** GameManager can pause the game (e.g. via emotion detection) → all HUD elements hide, "PAUSED" overlay appears.
+8. **Resume:** Unpause → HUD elements reappear, gameplay continues.
+9. **End:** Timer expires → `OnEnd()` stores `LastScore` (static), loads MainMenu scene with score displayed.
 
 ### 10.3 ShooterGame
 
@@ -502,9 +526,14 @@ MG_Shooter.unity
 | Member | Description |
 |--------|-------------|
 | `SceneIndex` | Returns `2` |
-| `OnStart(deps)` | Subscribes to GameManager events, starts spawner, starts timer |
-| `OnEnd()` | Unsubscribes, stops spawner, returns to MainMenu |
+| `OnStart(deps)` | Subscribes to GameManager events, starts in paused state (HUD hidden, "PRESS SPACE TO START" shown) |
+| `OnEnd()` | Stores `LastScore`, unsubscribes, deactivates targets, loads MainMenu scene |
+| `BeginGame()` | Called on first unpause — starts `CoWaveProgression()` and `InvokeRepeating(TimerTick)` |
+| `HandleGamePaused()` | Called via `GameManager.OnGamePaused` — hides HUD, shows "PAUSED" overlay |
+| `HandleGameResumed()` | Called via `GameManager.OnGameResumed` — shows HUD, hides overlay |
+| `LastScore` | `public static int` — final score from last game, read by `MainMenuController` |
 | `_gameDuration` | 90 seconds (configurable in Inspector) |
+| `_unpauseKey` | `KeyCode.Space` — key to unpause (configurable in Inspector) |
 
 ### 10.4 TargetSpawner
 

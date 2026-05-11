@@ -16,6 +16,8 @@ namespace ARcadeRush.Core
         public event Action OnGameStarted;
         public event Action OnGameEnded;
         public event Action<int> OnScoreChanged;
+        public event Action OnGamePaused;
+        public event Action OnGameResumed;
 
         private void Awake()
         {
@@ -65,6 +67,7 @@ namespace ARcadeRush.Core
             {
                 State = GameState.Paused;
                 Time.timeScale = 0f;
+                OnGamePaused?.Invoke();
             }
         }
 
@@ -74,6 +77,7 @@ namespace ARcadeRush.Core
             {
                 State = GameState.Playing;
                 Time.timeScale = 1f;
+                OnGameResumed?.Invoke();
             }
         }
     }

@@ -1,0 +1,188 @@
+# Shooter — Editor-Placed Targets + ShooterController
+
+## Problem
+
+Current `TargetSpawner.cs` spawns targets at runtime in random positions via object pooling. This doesn't allow blending targets into hand-crafted scenery. `Target.cs` reports score directly to `GameManager.Instance` with no central shooter-level controller.
+
+`TargetController.cs` is a legacy duplicate of Target's fall logic — unused, no namespace.
+
+## Proposed Architecture
+
+```
+ShooterController (singleton-ish per scene)
+ ├── Manages score relay → GameManager
+ ├── Manages spawn waves (activate/deactivate pre-placed targets)
+ ├── Tracks active targets → detects game-end conditions
+ └── Receives OnTargetKilled(Target) notifications
+
+Target (on each pre-placed GameObject in scene)
+ ├── Row ID (0=near, 1=mid, 2=far)  
+ ├── TargetType (Bandit/Innocent)
+ ├── OnHit() → notifies ShooterController
+ ├── Fall animation → stays deactivated until next wave
+ └── Registers/unregisters with ShooterController on Enable/Disable
+```
+
+```mermaid
+sequenceDiagram
+    participant Editor as Scene (Editor-placed targets)
+    participant SC as ShooterController
+    participant T as Target
+    participant GM as GameManager
+    participant HUD as HUDController
+
+    Note over SC: StartRound() → activates wave of targets
+    SC->>T: SetActive(true) for selected targets
+    T->>SC: RegisterTarget(this) [OnEnable]
+    Note over T: Player shoots...
+    T->>SC: OnTargetKilled(this, type, row)
+    SC->>GM: AddScore(points)
+    SC->>SC: _activeCount--, check wave complete
+    T->>T: Fall animation → SetActive(false)
+    T->>SC: UnregisterTarget(this) [OnDisable]
+    Note over SC: All targets killed → next wave or end game
+```
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **TargetSpawner.cs will be deleted.** All spawning logic moves to ShooterController activating pre-placed scene objects. If you want to keep random-spawning as a fallback mode, say so.
+
+> [!IMPORTANT]
+> **TargetController.cs will be deleted.** It's a legacy copy of Target's fall logic without a namespace. All functionality already exists in `Target.cs`.
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Wave system design**: Two options:
+> 1. **Manual waves** — You define wave groups in the editor (e.g., "Wave 1 = targets A,B,C; Wave 2 = D,E,F")
+> 2. **Auto-waves by row** — ShooterController picks N random targets from each row per wave, configurable counts
+>
+> Which do you prefer? Plan below assumes **option 2** (auto-waves) since it's more flexible with editor-placed targets.
+
+> [!IMPORTANT]
+> **Game-end condition**: Currently timer-only (90s). Do you also want a "all waves completed" end condition, or purely timer-based?
+
+---
+
+## Proposed Changes
+
+### Target System
+
+#### [MODIFY] [Target.cs](file:///c:/Users/manu/Documents/CubiWare/Assets/Scripts/Minigames/Shooter/Target.cs)
+
+Changes:
+- **Add `_rowId` field** (`[SerializeField] private int _rowId = 0;`) — identifies which row (0/1/2) this target belongs to. Set per-object in editor.
+- **Remove direct `GameManager.Instance.AddScore()` call** — Target no longer knows about scoring. Instead, it calls `ShooterController.Instance.OnTargetKilled(this)`.
+- **Add public properties**: `RowId`, keep `Type`.
+- **Keep**: fall animation, collider disable, hit effect, pool-return (`SetActive(false)`).
+- **OnEnable**: register with `ShooterController.Instance.RegisterTarget(this)`.
+- **OnDisable**: unregister with `ShooterController.Instance.UnregisterTarget(this)`.
+
+#### [DELETE] [TargetController.cs](file:///c:/Users/manu/Documents/CubiWare/Assets/Scripts/Minigames/Shooter/TargetController.cs)
+
+Legacy script. No namespace, duplicate fall logic. Not referenced anywhere.
+
+---
+
+### Shooter Controller
+
+#### [NEW] ShooterController.cs — `Assets/Scripts/Minigames/Shooter/ShooterController.cs`
+
+Central brain for the shooter minigame. **Replaces TargetSpawner.**
+
+```
+Namespace: ARcadeRush.Minigames.Shooter
+
+Fields (serialized):
+  - int _targetsPerWaveRow0 = 2
+  - int _targetsPerWaveRow1 = 3
+  - int _targetsPerWaveRow2 = 3
+  - float _waveCooldown = 2f        // delay between waves
+  - int _banditScore = 10
+  - int _innocentPenalty = -20
+
+Runtime state:
+  - List<Target> _allTargets          // populated by Target.RegisterTarget()
+  - List<Target> _activeTargets       // currently alive in this wave
+  - int _currentWave = 0
+  - int _killsThisWave = 0
+  - bool _isActive = false
+
+Singleton pattern:
+  - static ShooterController Instance (scene-scoped, no DontDestroyOnLoad)
+
+Public API:
+  - StartGame()             // called by ShooterGame.OnStart()
+  - StopGame()              // called by ShooterGame.OnEnd()
+  - RegisterTarget(Target)  // called by Target.OnEnable
+  - UnregisterTarget(Target)// called by Target.OnDisable
+  - OnTargetKilled(Target)  // called by Target.OnHit()
+
+Events:
+  - event Action<int> OnScoreChanged   // relays to HUD
+  - event Action OnWaveCompleted
+  - event Action OnAllWavesCompleted
+
+Internal:
+  - StartNextWave()         // picks random subset of inactive targets per row, activates them
+  - HandleKill(Target)      // score → GameManager, track active count, check wave done
+```
+
+#### [DELETE] [TargetSpawner.cs](file:///c:/Users/manu/Documents/CubiWare/Assets/Scripts/Minigames/Shooter/TargetSpawner.cs)
+
+Replaced entirely by ShooterController. Runtime random-position spawning no longer needed.
+
+---
+
+### Game Orchestration
+
+#### [MODIFY] [ShooterGame.cs](file:///c:/Users/manu/Documents/CubiWare/Assets/Scripts/Minigames/Shooter/ShooterGame.cs)
+
+Changes:
+- Replace `_targetSpawner` reference with `_shooterController` (`ShooterController`).
+- `OnStart()`: call `_shooterController.StartGame()` instead of `_targetSpawner.StartSpawning()`.
+- `OnEnd()`: call `_shooterController.StopGame()` instead of `_targetSpawner.StopSpawning()`.
+- Remove direct `OnScoreChanged` subscription from GameManager — ShooterController handles the relay.
+- Keep timer logic, HUD updates, scene loading unchanged.
+
+---
+
+### Unchanged Files (no modifications needed)
+
+| File | Reason |
+|---|---|
+| `GunController.cs` | Pure visual, no game logic coupling |
+| `ShooterHandController.cs` | Fires bullets / hitscan → calls `Target.OnHit()`. No changes needed |
+| `GameManager.cs` | Still receives `AddScore()` calls, now routed through ShooterController |
+
+---
+
+## Editor Workflow (after implementation)
+
+1. **Place targets in scene** as individual GameObjects with `Target` component
+2. Set `_type` (Bandit/Innocent) and `_rowId` (0/1/2) per target in Inspector
+3. **Start them disabled** (`SetActive(false)`) — ShooterController activates them in waves
+4. Add one `ShooterController` GameObject to scene, configure wave sizes
+5. Add scenery/props around targets — they blend into the environment since they're regular scene objects
+
+---
+
+## Verification Plan
+
+### Manual Verification (Unity Editor)
+1. Place 6+ targets in scene across 3 rows, mix of Bandit/Innocent
+2. Enter Play Mode → confirm ShooterController activates first wave subset
+3. Shoot targets → confirm score updates in HUD (+10 bandit, -20 innocent)
+4. Kill all wave targets → confirm next wave activates after cooldown
+5. Let timer expire → confirm game ends and returns to MainMenu
+6. Check Console: zero NREs, correct `[ShooterController]` logs
+
+### Code Verification
+- All targets register/unregister correctly (count matches expected)
+- Wave doesn't activate more targets than available per row
+- Score routing: Target → ShooterController → GameManager → HUD
