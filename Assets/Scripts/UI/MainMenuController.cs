@@ -15,6 +15,7 @@ namespace ARcadeRush.UI
         [SerializeField] private Button _startFruitNinjaBtn;
         [SerializeField] private Button _startDirectorBtn;
         [SerializeField] private Button _startSimonBtn;
+        [SerializeField] private Button _startTest2Btn;
 
         [Header("Score Display")]
         [SerializeField] private TMP_Text _lastScoreText;
@@ -22,6 +23,9 @@ namespace ARcadeRush.UI
 
         private void Start()
         {
+            Debug.Log($"[MainMenu] Buttons assigned: " +
+            $"Test2={_startTest2Btn != null}, " +
+            $"Director={_startDirectorBtn != null}");
             if (_startTestingSceneBtn != null)
             {
                 // Optional testing scene — ensure camera is running before loading.
@@ -49,20 +53,10 @@ namespace ARcadeRush.UI
                 // Scene 2 is MG_Shooter in final Build Settings.
                 _startSimonBtn.onClick.AddListener(() => LoadScene(2));
             }
-
-            // Display last game score if returning from a completed game
-            if (_lastScoreText != null)
+            
+            if (_startTest2Btn != null)
             {
-                int lastScore = ShooterGame.LastScore;
-                if (lastScore > 0 || ShooterGame.LastScore != 0)
-                {
-                    _lastScoreText.text = $"{_scorePrefix}{lastScore}";
-                    _lastScoreText.gameObject.SetActive(true);
-                }
-                else
-                {
-                    _lastScoreText.gameObject.SetActive(false);
-                }
+                _startTest2Btn.onClick.AddListener(() => LoadScene(4));
             }
         }
 
