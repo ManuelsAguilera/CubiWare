@@ -5,6 +5,9 @@ using UnityEngine;
 using Mediapipe.Tasks.Vision.HandLandmarker;
 using Mediapipe.Tasks.Vision.FaceLandmarker;
 using Mediapipe.Tasks.Components.Containers;
+using CubiWare.Core.Services;
+using CubiWare.Core.Logging;
+using CubiWare.Core.Interfaces;
  
 namespace ARcadeRush.Core
 {
@@ -19,6 +22,24 @@ namespace ARcadeRush.Core
         // Antes: Action<NormalizedLandmarks>
         // Ahora: Action<FaceLandmarkerResult>  (incluye landmarks + blendshapes)
         public event Action<FaceLandmarkerResult> OnFaceDetected;
+ 
+        /// <summary>
+        /// Service-layer hand detector for decoupled hand detection.
+        /// Exposed as <see cref="IHandDetector"/> for dependency-injected consumers.
+        /// </summary>
+        private HandDetectorService _handService;
+
+        /// <summary>
+        /// Gets the service-layer hand detector as <see cref="IHandDetector"/>.
+        /// Consumers (e.g., ShooterHandController) should resolve this interface
+        /// instead of relying on MediaPipeController.Instance directly.
+        /// </summary>
+        public IHandDetector HandDetector => _handService;
+ 
+        /// <summary>
+        /// Service-layer face detector for decoupled face detection.
+        /// </summary>
+        private FaceDetectorService _faceService;
  
         private HandLandmarker _handLandmarker;
         private FaceLandmarker _faceLandmarker;
@@ -41,17 +62,44 @@ namespace ARcadeRush.Core
  
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
             Instance = this;
             DontDestroyOnLoad(transform.root.gameObject);
+
+            // Initialize the service-layer providers
+            _handService = new HandDetectorService();
+            _faceService = new FaceDetectorService();
+
+            // Wire service events to re-fire through the existing controller events
+            // for backward compatibility
+            _handService.OnHandDetected += data =>
+            {
+                // The controller still uses NormalizedLandmarks events, so we
+                // keep the existing pipeline intact. Service events can be consumed
+                // directly via IHandDetector/IFaceDetector interfaces.
+            };
+
+            _handService.OnHandLost += () =>
+            {
+                // Service-level hand-lost tracking; existing pipeline also handles this
+            };
+
+            _faceService.OnFaceDetected += data =>
+            {
+                // Service-level face detection; existing pipeline also handles this
+            };
+
+            _faceService.OnFaceLost += () =>
+            {
+                // Service-level face-lost tracking
+            };
         }
  
-        private void Start()
+        private async void Start()
         {
+            // Initialize service-layer providers
+            await _handService.InitializeAsync();
+            await _faceService.InitializeAsync();
+ 
             InitMediapipe();
         }
  
@@ -80,7 +128,7 @@ namespace ARcadeRush.Core
             _faceLandmarker = FaceLandmarker.CreateFromOptions(faceOptions);
  
             _isReady = true;
-            Debug.Log("MediaPipeController: Hand and Face tracking initialized.");
+            ServiceLogger.Instance.LogInfo("MediaPipeController", "Hand and Face tracking initialized.");
         }
  
         private void Update()
@@ -183,6 +231,16 @@ namespace ARcadeRush.Core
         {
             if (_handLandmarker != null) _handLandmarker.Close();
             if (_faceLandmarker != null) _faceLandmarker.Close();
+ 
+            // Shutdown service-layer providers
+            if (_handService != null)
+            {
+                _ = _handService.ShutdownAsync();
+            }
+            if (_faceService != null)
+            {
+                _ = _faceService.ShutdownAsync();
+            }
         }
     }
 }

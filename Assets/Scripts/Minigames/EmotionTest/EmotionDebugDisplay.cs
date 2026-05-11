@@ -2,7 +2,8 @@ using UnityEngine;
 using TMPro;
 using ARcadeRush.Core;
 using ARcadeRush.Face;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Minigames.EmotionTest
 {
     /// <summary>
@@ -38,6 +39,8 @@ namespace ARcadeRush.Minigames.EmotionTest
         private Color _colorAngry = new Color32(226, 75, 74, 255);
         private Color _colorNeutral = new Color32(128, 128, 128, 255);
 
+        private const string LogServiceName = "EmotionDebugDisplay";
+
         public void Initialize(MiniGameDependencies deps)
         {
             _deps = deps;
@@ -50,19 +53,19 @@ namespace ARcadeRush.Minigames.EmotionTest
             if (_emotionClassifier != null)
             {
                 _emotionClassifier.OnEmotionChanged += OnEmotionChanged;
-                Debug.Log("[EmotionDebugDisplay] EmotionClassifier found and subscribed");
+                ServiceLogger.Instance.LogInfo(LogServiceName, "EmotionClassifier found and subscribed");
             }
             else
             {
-                Debug.LogWarning("[EmotionDebugDisplay] EmotionClassifier not found in scene!");
+                ServiceLogger.Instance.LogWarning(LogServiceName, "EmotionClassifier not found in scene!");
             }
 
             if (_faceLandmarkReader == null)
             {
-                Debug.LogWarning("[EmotionDebugDisplay] FaceLandmarkReader not found in scene!");
+                ServiceLogger.Instance.LogWarning(LogServiceName, "FaceLandmarkReader not found in scene!");
             }
 
-            Debug.Log("[EmotionDebugDisplay] Initialized");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Initialized");
         }
 
         public void EnableModule(bool enable)
@@ -92,7 +95,7 @@ namespace ARcadeRush.Minigames.EmotionTest
                 }
             }
 
-            Debug.Log($"[EmotionDebugDisplay] Module {(enable ? "ENABLED" : "DISABLED")}");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"Module {(enable ? "ENABLED" : "DISABLED")}");
         }
 
         public void Reset()
@@ -102,7 +105,7 @@ namespace ARcadeRush.Minigames.EmotionTest
             System.Array.Clear(_emotionHistory, 0, _emotionHistory.Length);
             _historyIndex = 0;
 
-            Debug.Log("[EmotionDebugDisplay] Reset");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Reset");
         }
 
         private void OnEmotionChanged(EmotionLabel emotion)
@@ -118,7 +121,7 @@ namespace ARcadeRush.Minigames.EmotionTest
                 _historyIndex = (_historyIndex + 1) % _historySize;
             }
 
-            Debug.Log($"[EmotionDebugDisplay] Emotion changed to: {emotion}");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"Emotion changed to: {emotion}");
         }
 
         private void Update()

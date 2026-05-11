@@ -1,10 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Core
 {
     public class LLMTestButton : MonoBehaviour
     {
+        private const string LogServiceName = "LLMTestButton";
+
         private void Start()
         {
             var btn = GetComponent<Button>();
@@ -16,21 +19,21 @@ namespace ARcadeRush.Core
 
         private void TestLLM()
         {
-            Debug.Log("LLMTestButton: Sending test request...");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Sending test request...");
             float startTime = Time.realtimeSinceStartup;
 
             LLMConnector.Instance.Ask(
                 "You are a helpful assistant. Reply in one short sentence.",
                 "Say hello to the ARcade Rush team!",
-                onComplete: (text) => 
+                onComplete: (text) =>
                 {
                     float duration = Time.realtimeSinceStartup - startTime;
-                    Debug.Log($"LLMTestButton: Success in {duration:F2}s\nResponse: {text}");
+                    ServiceLogger.Instance.LogInfo(LogServiceName, $"Success in {duration:F2}s\nResponse: {text}");
                 },
-                onError: (err) => 
+                onError: (err) =>
                 {
                     float duration = Time.realtimeSinceStartup - startTime;
-                    Debug.LogError($"LLMTestButton: Failed in {duration:F2}s. Error: {err}");
+                    ServiceLogger.Instance.LogError(LogServiceName, $"Failed in {duration:F2}s. Error: {err}", ServiceErrorCode.LLMConnectionFailed);
                 }
             );
         }

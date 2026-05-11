@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Minigames.Shooter
 {
     [System.Serializable]
@@ -57,6 +58,8 @@ namespace ARcadeRush.Minigames.Shooter
 
         // Fast lookup: RowConfig by label
         private Dictionary<string, RowConfig> _configByLabel;
+
+        private const string LogServiceName = "TargetManager";
 
         private void Awake()
         {
@@ -136,13 +139,13 @@ namespace ARcadeRush.Minigames.Shooter
             // Validate
             if (!_targetsByRow.ContainsKey(rowLabel))
             {
-                Debug.LogWarning($"[TargetManager] Unknown row label: '{rowLabel}'");
+                ServiceLogger.Instance.LogWarning(LogServiceName, $"Unknown row label: '{rowLabel}'");
                 return false;
             }
 
             if (!_configByLabel.ContainsKey(rowLabel))
             {
-                Debug.LogWarning($"[TargetManager] No RowConfig for label: '{rowLabel}'");
+                ServiceLogger.Instance.LogWarning(LogServiceName, $"No RowConfig for label: '{rowLabel}'");
                 return false;
             }
 

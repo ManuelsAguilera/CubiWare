@@ -1,5 +1,6 @@
 using UnityEngine;
 using ARcadeRush.Core;
+using CubiWare.Core.Logging;
 using Mediapipe.Tasks.Vision.FaceLandmarker;
 using Mediapipe.Tasks.Components.Containers;
  
@@ -47,6 +48,7 @@ namespace ARcadeRush.Face
         [SerializeField] private float _blendshapeWeight = 0.75f;
  
         // ── Private ───────────────────────────────────────────────────────────────
+        private const string LogServiceName = "FaceLandmarkReader";
         private float[] _rawMetrics      = new float[6];
         private float[] _neutralBaseline = null;
         private float   _calibrationTimer = 0f;
@@ -102,7 +104,7 @@ namespace ARcadeRush.Face
                 if (_calibrationTimer >= _calibrationDuration)
                 {
                     _calibrated = true;
-                    Debug.Log($"[FaceLandmarkReader] ✓ Baseline calibrated " +
+                    ServiceLogger.Instance.LogInfo(LogServiceName, $"✓ Baseline calibrated " +
                               $"(blendshapes={_hasBlendshapes}): " +
                               $"mouth={_neutralBaseline[0]:F3} smile={_neutralBaseline[4]:F3} " +
                               $"furrow={_neutralBaseline[5]:F3}");
@@ -264,7 +266,7 @@ namespace ARcadeRush.Face
             _calibrated       = false;
             _calibrationTimer = 0f;
             _neutralBaseline  = null;
-            Debug.Log("[FaceLandmarkReader] Calibration reset.");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Calibration reset.");
         }
  
         #endregion
@@ -276,12 +278,12 @@ namespace ARcadeRush.Face
         {
             if (MediaPipeController.Instance == null)
             {
-                Debug.LogWarning("[FaceLandmarkReader] MediaPipeController instance is NULL");
+                ServiceLogger.Instance.LogWarning(LogServiceName, "MediaPipeController instance is NULL");
                 return;
             }
             MediaPipeController.Instance.OnFaceDetected -= HandleFaceDetected;
             MediaPipeController.Instance.OnFaceDetected += HandleFaceDetected;
-            Debug.Log("[FaceLandmarkReader] Successfully subscribed to OnFaceDetected");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Successfully subscribed to OnFaceDetected");
         }
  
         private static float Dist2D(System.Collections.Generic.IList<NormalizedLandmark> lm, int a, int b)

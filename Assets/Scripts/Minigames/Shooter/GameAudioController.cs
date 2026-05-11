@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using ARcadeRush.Core;
+using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Minigames.Shooter
 {
@@ -37,6 +38,32 @@ namespace ARcadeRush.Minigames.Shooter
         private int _currentIntensity = 0; // 0 = none, 1 = Low, 2 = Medium, 3 = High
         private bool _isPaused = false;
         private bool _isTransitioning = false;
+
+        // ── Injected references ─────────────────────────────────────────────
+        private GameManager _gameManager;
+        private readonly ServiceLogger _logger = ServiceLogger.Instance;
+
+        // ── Public API ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Sets the GameManager reference for pause/resume event subscriptions.
+        /// Called by ShooterGame during initialization, replacing the previous
+        /// FindFirstObjectByType lookup.
+        /// </summary>
+        /// <param name="gameManager">The active GameManager instance.</param>
+        public void Initialize(GameManager gameManager)
+        {
+            _gameManager = gameManager;
+            _logger.LogInfo("GameAudioController",
+                "Initialized with injected GameManager reference.");
+
+            // Subscribe to GameManager pause/resume events
+            if (_gameManager != null)
+            {
+                _gameManager.OnGamePaused += PauseMusic;
+                _gameManager.OnGameResumed += ResumeMusic;
+            }
+        }
 
         /// <summary>Human-readable label for the currently active music track.</summary>
         public string CurrentIntensityLabel
@@ -156,23 +183,34 @@ namespace ARcadeRush.Minigames.Shooter
 
         private void Start()
         {
-            // Self-subscribe to GameManager pause/resume events so this controller
-            // handles music transitions independently of ShooterGame.
-            GameManager gm = FindFirstObjectByType<GameManager>();
-            if (gm != null)
+            // If Initialize() has not been called (missing bootstrap path),
+            // fall back to the legacy FindFirstObjectByType lookup.
+            if (_gameManager == null)
             {
-                gm.OnGamePaused += PauseMusic;
-                gm.OnGameResumed += ResumeMusic;
+                _gameManager = FindFirstObjectByType<GameManager>();
+                if (_gameManager != null)
+                {
+                    _logger.LogInfo("GameAudioController",
+                        "GameManager resolved via FindFirstObjectByType (legacy fallback).");
+                    _gameManager.OnGamePaused += PauseMusic;
+                    _gameManager.OnGameResumed += ResumeMusic;
+                }
+                else
+                {
+                    _logger.LogWarning("GameAudioController",
+                        "GameManager not found — pause/resume music events will be unavailable.");
+                }
             }
+            // If Initialize() was called, subscriptions are already set up there.
         }
 
         private void OnDestroy()
         {
-            GameManager gm = FindFirstObjectByType<GameManager>();
-            if (gm != null)
+            if (_gameManager != null)
             {
-                gm.OnGamePaused -= PauseMusic;
-                gm.OnGameResumed -= ResumeMusic;
+                _gameManager.OnGamePaused -= PauseMusic;
+                _gameManager.OnGameResumed -= ResumeMusic;
+                _logger.LogInfo("GameAudioController", "Unsubscribed from GameManager events.");
             }
         }
 

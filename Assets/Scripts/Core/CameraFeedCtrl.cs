@@ -1,10 +1,13 @@
 using UnityEngine;
+using CubiWare.Core.Services;
+using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Core
 {
     /// <summary>
     /// Camera feed controller. Based on the original working CameraController.cs.
-    /// Singleton + DontDestroyOnLoad.
+    /// Singleton + DontDestroyOnLoad. Now delegates to <see cref="CameraFeedProvider"/>
+    /// for service-layer camera management.
     /// </summary>
     public class CameraFeedCtrl : MonoBehaviour
     {
@@ -26,17 +29,20 @@ namespace ARcadeRush.Core
 
         private WebCamTexture _webCamTexture;
 
+        /// <summary>
+        /// Service-layer camera provider for decoupled camera management.
+        /// </summary>
+        private CameraFeedProvider _provider;
+
+        private readonly ServiceLogger _logger = ServiceLogger.Instance;
+
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Debug.Log($"[CamFeed] Destroying duplicate instance {GetInstanceID()}. Winning instance is {Instance.GetInstanceID()}");
-                Destroy(gameObject);
-                return;
-            }
             Instance = this;
             DontDestroyOnLoad(transform.root.gameObject);
-            Debug.Log($"[CamFeed] Awake: Instance {GetInstanceID()} protected with DontDestroyOnLoad.");
+
+            // Initialize the service-layer provider
+            _provider = new CameraFeedProvider(_requestedWidth, _requestedHeight);
         }
 
 #if UNITY_EDITOR
@@ -54,7 +60,7 @@ namespace ARcadeRush.Core
         {
             if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
             {
-                Debug.Log("[CamFeed] Exiting Play Mode! Force releasing camera handle.");
+                _logger.LogInfo("CameraFeedCtrl", "Exiting Play Mode! Force releasing camera handle.");
                 StopCamera();
                 if (_webCamTexture != null)
                 {
@@ -68,22 +74,24 @@ namespace ARcadeRush.Core
         /// <summary>
         /// Call this to start the camera (e.g. from a button or from another script).
         /// Mirrors the original CameraController.StartCamera() that worked.
+        /// Delegates to <see cref="CameraFeedProvider.StartCamera"/> after setup.
         /// </summary>
         public void StartCamera()
         {
+            _logger.LogInfo("CameraFeedCtrl", "StartCamera called. Delegating to provider.");
             StartCoroutine(StartCameraRoutine());
         }
 
         // Note: For Android, ensure AndroidManifest.xml includes: <uses-permission android:name="android.permission.CAMERA" />
         private System.Collections.IEnumerator StartCameraRoutine()
         {
-            Debug.Log($"[CamFeed] StartCamera called on instance {GetInstanceID()}");
+            _logger.LogInfo("CameraFeedCtrl", $"StartCameraRoutine started on instance {GetInstanceID()}");
 
             #if UNITY_IOS || UNITY_WEBGL
             yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
             if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
             {
-                Debug.LogError("[CamFeed] Camera permission denied by user!");
+                _logger.LogError("CameraFeedCtrl", "Camera permission denied by user!", ServiceErrorCode.CameraAccessDenied);
                 yield break;
             }
             #elif UNITY_ANDROID
@@ -91,11 +99,11 @@ namespace ARcadeRush.Core
             {
                 UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
                 // Wait until the user has either granted or denied the permission (this can take more than one frame, but we'll wait one frame as requested)
-                yield return null; 
+                yield return null;
                 // Technically it's safer to wait until the permission dialog is dismissed, but per prompt:
                 if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
                 {
-                    Debug.LogError("[CamFeed] Camera permission denied by user!");
+                    _logger.LogError("CameraFeedCtrl", "Camera permission denied by user!", ServiceErrorCode.CameraAccessDenied);
                     yield break;
                 }
             }
@@ -104,13 +112,13 @@ namespace ARcadeRush.Core
             if (_webCamTexture == null)
             {
                 WebCamDevice[] devices = WebCamTexture.devices;
-                Debug.Log($"[CamFeed] Found {devices.Length} device(s)");
+                _logger.LogInfo("CameraFeedCtrl", $"Found {devices.Length} camera device(s).");
                 for (int i = 0; i < devices.Length; i++)
-                    Debug.Log($"[CamFeed] Found camera [{i}]: {devices[i].name}");
+                    _logger.LogInfo("CameraFeedCtrl", $"Found camera [{i}]: {devices[i].name}");
 
                 if (devices.Length == 0)
                 {
-                    Debug.LogError("[CamFeed] No cameras found!");
+                    _logger.LogError("CameraFeedCtrl", "No cameras found!", ServiceErrorCode.CameraInitFailed);
                     yield break;
                 }
 
@@ -123,9 +131,9 @@ namespace ARcadeRush.Core
                 _webCamTexture = new WebCamTexture(devices[_cameraIndex].name, _requestedWidth, _requestedHeight, _requestedFPS);
 
                 if (_webCamTexture == null)
-                    Debug.LogError("[CamFeed] WebCamTexture failed to instantiate!");
+                    _logger.LogError("CameraFeedCtrl", "WebCamTexture failed to instantiate!", ServiceErrorCode.CameraInitFailed);
                 else
-                    Debug.Log($"[CamFeed] WebCamTexture created for: {_webCamTexture.deviceName}");
+                    _logger.LogInfo("CameraFeedCtrl", $"WebCamTexture created for: {_webCamTexture.deviceName}");
             }
 
             if (_outputImage != null)
@@ -134,7 +142,11 @@ namespace ARcadeRush.Core
             }
 
             _webCamTexture.Play();
-            Debug.Log($"[CamFeed] Camera started: {_webCamTexture.deviceName}, isPlaying={_webCamTexture.isPlaying}");
+
+            // Delegate to the service-layer provider
+            _provider?.StartCamera();
+
+            _logger.LogInfo("CameraFeedCtrl", $"Camera started: {_webCamTexture.deviceName}, isPlaying={_webCamTexture.isPlaying}");
             StartCoroutine(PollCameraState());
         }
 
@@ -165,8 +177,11 @@ namespace ARcadeRush.Core
             if (_webCamTexture != null && _webCamTexture.isPlaying)
             {
                 _webCamTexture.Stop();
-                Debug.Log("[CamFeed] Camera stopped.");
+                _logger.LogInfo("CameraFeedCtrl", "Camera stopped.");
             }
+
+            // Delegate to the service-layer provider
+            _provider?.StopCamera();
         }
 
         /// <summary>
@@ -177,6 +192,9 @@ namespace ARcadeRush.Core
             bool wasPlaying = IsPlaying;
 
             StopCamera();
+
+            _provider?.StopCamera();
+
             if (_webCamTexture != null)
             {
                 Destroy(_webCamTexture);
@@ -187,7 +205,7 @@ namespace ARcadeRush.Core
             //_webCamTexture = new WebCamTexture(deviceName);
             
             _webCamTexture = new WebCamTexture(deviceName, _requestedWidth, _requestedHeight, _requestedFPS);
-            Debug.Log($"[CamFeed] Switched to '{deviceName}' (not started yet)");
+            _logger.LogInfo("CameraFeedCtrl", $"Switched to '{deviceName}' (not started yet)");
 
             // Only auto-start if camera was already running
             if (wasPlaying)
@@ -223,8 +241,9 @@ namespace ARcadeRush.Core
 
         private void OnApplicationQuit()
         {
-            Debug.Log("[CamFeed] OnApplicationQuit called. Force releasing camera handle.");
+            _logger.LogInfo("CameraFeedCtrl", "OnApplicationQuit called. Force releasing camera handle.");
             StopCamera();
+            _provider?.Dispose();
             if (_webCamTexture != null)
             {
                 Destroy(_webCamTexture);
@@ -234,9 +253,10 @@ namespace ARcadeRush.Core
 
         private void OnDestroy()
         {
-            Debug.Log($"[CamFeed] OnDestroy called. Stack:\n{System.Environment.StackTrace}");
+            _logger.LogInfo("CameraFeedCtrl", $"OnDestroy called. Stack:\n{System.Environment.StackTrace}");
             if (Instance == this) Instance = null;
             StopCamera();
+            _provider?.Dispose();
             if (_webCamTexture != null)
             {
                 Destroy(_webCamTexture);

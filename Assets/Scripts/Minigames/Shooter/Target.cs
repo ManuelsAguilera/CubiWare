@@ -1,7 +1,8 @@
 using System.Collections;
 using UnityEngine;
 using ARcadeRush.Core;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Minigames.Shooter
 {
     public enum TargetType { Bandit, Innocent }
@@ -74,6 +75,10 @@ namespace ARcadeRush.Minigames.Shooter
         private Coroutine _timeoutCo;
         private Vector3 _startPosition;
         private float _activeDuration;
+
+        // --- Private const ---
+
+        private const string LogServiceName = "Target";
 
         // --- Unity Lifecycle ---
 
@@ -154,7 +159,7 @@ namespace ARcadeRush.Minigames.Shooter
             int points = _type == TargetType.Bandit ? _banditScore : _innocentScore;
             string label = _type == TargetType.Bandit ? "Bandit" : "Innocent";
 
-            Debug.Log($"[Target] {label} ({_rowLabel}) hit! Score: {points}");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"{label} ({_rowLabel}) hit! Score: {points}");
 
             if (_hitEffectPrefab != null)
             {
@@ -280,7 +285,7 @@ namespace ARcadeRush.Minigames.Shooter
             if (_collider != null) _collider.enabled = false;
             _isAnimating = true;
 
-            Debug.Log($"[Target] {_rowLabel}#{_targetId} timed out — deactivating.");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"{_rowLabel}#{_targetId} timed out — deactivating.");
 
             _fallCo = StartCoroutine(CoFallAndDeactivate());
         }

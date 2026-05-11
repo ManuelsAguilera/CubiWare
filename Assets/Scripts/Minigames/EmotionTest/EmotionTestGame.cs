@@ -1,7 +1,8 @@
 using UnityEngine;
 using ARcadeRush.Core;
 using ARcadeRush.Face;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Minigames.EmotionTest
 {
     /// <summary>
@@ -29,6 +30,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         /// <summary>Must match MG_EmotionTest in Build Settings</summary>
         public int SceneIndex => 4;
 
+        private const string LogServiceName = "EmotionTestGame";
         private MiniGameDependencies _deps;
         private bool _isPlaying = false;
         private bool _emotionModuleActive = true;
@@ -38,7 +40,7 @@ namespace ARcadeRush.Minigames.EmotionTest
             _deps = deps;
             _isPlaying = true;
 
-            Debug.Log("[EmotionTestGame] Starting Emotion Debug Scene");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Starting Emotion Debug Scene");
 
             // Setup Camera
             SetupCamera();
@@ -59,7 +61,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         {
             _isPlaying = false;
 
-            Debug.Log("[EmotionTestGame] Exiting Emotion Debug Scene");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Exiting Emotion Debug Scene");
 
             if (_deps?.GameManager != null)
             {
@@ -76,7 +78,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         {
             if (_deps?.Camera == null)
             {
-                Debug.LogWarning("[EmotionTestGame] Camera not available in dependencies!");
+                ServiceLogger.Instance.LogWarning(LogServiceName, "Camera not available in dependencies!");
                 return;
             }
 
@@ -87,16 +89,16 @@ namespace ARcadeRush.Minigames.EmotionTest
                 if (!_deps.Camera.IsPlaying)
                 {
                     _deps.Camera.StartCamera();
-                    Debug.Log("[EmotionTestGame] Camera started");
+                    ServiceLogger.Instance.LogInfo(LogServiceName, "Camera started");
                 }
                 else
                 {
-                    Debug.Log("[EmotionTestGame] Camera already active");
+                    ServiceLogger.Instance.LogInfo(LogServiceName, "Camera already active");
                 }
             }
             else
             {
-                Debug.LogWarning("[EmotionTestGame] Camera display RawImage not assigned!");
+                ServiceLogger.Instance.LogWarning(LogServiceName, "Camera display RawImage not assigned!");
             }
         }
 
@@ -127,12 +129,12 @@ namespace ARcadeRush.Minigames.EmotionTest
                 _emotionDebugDisplay.EnableModule(_emotionModuleActive);
             }
 
-            Debug.Log($"[EmotionTestGame] Emotion module {(_emotionModuleActive ? "ENABLED" : "DISABLED")}");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"Emotion module {(_emotionModuleActive ? "ENABLED" : "DISABLED")}");
         }
 
         private void OnReset()
         {
-            Debug.Log("[EmotionTestGame] Reset button pressed");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Reset button pressed");
 
             if (_emotionDebugDisplay != null)
             {
@@ -142,7 +144,7 @@ namespace ARcadeRush.Minigames.EmotionTest
 
         private void OnExit()
         {
-            Debug.Log("[EmotionTestGame] Exit button pressed");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Exit button pressed");
             OnEnd();
         }
 
@@ -154,7 +156,7 @@ namespace ARcadeRush.Minigames.EmotionTest
             // Keep camera active
             if (_cameraDisplay != null && !_deps.Camera.IsPlaying)
             {
-                Debug.LogWarning("[EmotionTestGame] Camera stopped unexpectedly. Restarting...");
+                ServiceLogger.Instance.LogWarning(LogServiceName, "Camera stopped unexpectedly. Restarting...");
                 _deps.Camera.StartCamera();
             }
 
@@ -167,25 +169,25 @@ namespace ARcadeRush.Minigames.EmotionTest
 
         private void Awake()
         {
-            Debug.Log("[EmotionTestGame] Awake");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Awake");
         }
 
         private void Start()
         {
             if (GameManager.Instance != null)
             {
-                Debug.Log("[EmotionTestGame] Registering with GameManager...");
+                ServiceLogger.Instance.LogInfo(LogServiceName, "Registering with GameManager...");
                 GameManager.Instance.StartGame(this);
             }
             else
             {
-                Debug.LogError("[EmotionTestGame] GameManager not found! Start from Bootstrap scene.");
+                ServiceLogger.Instance.LogError(LogServiceName, "GameManager not found! Start from Bootstrap scene.", ServiceErrorCode.NotInitialized);
             }
         }
 
         private void OnDestroy()
         {
-            Debug.Log("[EmotionTestGame] OnDestroy");
+            ServiceLogger.Instance.LogInfo(LogServiceName, "OnDestroy");
         }
     }
 }
