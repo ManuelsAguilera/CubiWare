@@ -27,7 +27,14 @@ namespace ARcadeRush.Core
 
         public WebCamTexture ActiveWebCamTexture => _webCamTexture;
 
+        /// <summary>
+        /// Current actual frames per second of the camera feed (calculated, not requested).
+        /// </summary>
+        public float CurrentFPS { get; private set; }
+
         private WebCamTexture _webCamTexture;
+        private int _frameCount;
+        private float _fpsTimer;
 
         /// <summary>
         /// Service-layer camera provider for decoupled camera management.
@@ -237,6 +244,26 @@ namespace ARcadeRush.Core
         private void Update()
         {
             DidUpdateThisFrame = _webCamTexture != null && _webCamTexture.isPlaying && _webCamTexture.didUpdateThisFrame;
+
+            // Calculate actual FPS by counting frames over time
+            if (_webCamTexture != null && _webCamTexture.isPlaying)
+            {
+                _frameCount++;
+                _fpsTimer += Time.unscaledDeltaTime;
+                if (_fpsTimer >= 1f)
+                {
+                    CurrentFPS = _frameCount / _fpsTimer;
+                    Debug.Log($"[CamFeed] Actual camera FPS: {CurrentFPS:F1} (requested: {_requestedFPS})");
+                    _frameCount = 0;
+                    _fpsTimer = 0f;
+                }
+            }
+            else
+            {
+                CurrentFPS = 0f;
+                _frameCount = 0;
+                _fpsTimer = 0f;
+            }
         }
 
         private void OnApplicationQuit()

@@ -61,7 +61,7 @@ namespace CubiWare.Core.Services
         {
             try
             {
-                if (result == null || result.faceLandmarks == null || result.faceLandmarks.Count == 0)
+                if (result.Equals(default(FaceLandmarkerResult)) || result.faceLandmarks == null || result.faceLandmarks.Count == 0)
                 {
                     IsDetecting = false;
                     OnFaceLost?.Invoke();
@@ -108,13 +108,13 @@ namespace CubiWare.Core.Services
                     return null;
 
                 var blendshapes = result.faceBlendshapes[0];
-                if (blendshapes?.blendshapes == null || blendshapes.blendshapes.Count == 0)
+                if (blendshapes.categories == null || blendshapes.categories.Count == 0)
                     return null;
 
-                float[] weights = new float[blendshapes.blendshapes.Count];
+                float[] weights = new float[blendshapes.categories.Count];
                 for (int i = 0; i < weights.Length; i++)
                 {
-                    weights[i] = blendshapes.blendshapes[i].score;
+                    weights[i] = blendshapes.categories[i].score;
                 }
 
                 return weights;

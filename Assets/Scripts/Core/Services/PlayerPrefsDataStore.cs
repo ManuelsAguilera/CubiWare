@@ -50,14 +50,14 @@ namespace CubiWare.Core.Services
             {
                 if (!PlayerPrefs.HasKey(key))
                 {
-                    _logger.LogWarning($"Key '{key}' not found in PlayerPrefs.");
+                    _logger.LogWarning(nameof(PlayerPrefsDataStore), $"Key '{key}' not found in PlayerPrefs.");
                     return Task.FromResult(default(T));
                 }
 
                 string json = PlayerPrefs.GetString(key);
                 if (string.IsNullOrEmpty(json))
                 {
-                    _logger.LogWarning($"Empty JSON found for key '{key}'.");
+                    _logger.LogWarning(nameof(PlayerPrefsDataStore), $"Empty JSON found for key '{key}'.");
                     return Task.FromResult(default(T));
                 }
 

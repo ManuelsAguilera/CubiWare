@@ -68,7 +68,7 @@ namespace CubiWare.Core.Services
         {
             try
             {
-                if (result == null || result.handLandmarks == null || result.handLandmarks.Count == 0)
+                if (result.Equals(default(HandLandmarkerResult)) || result.handLandmarks == null || result.handLandmarks.Count == 0)
                 {
                     IsDetecting = false;
                     OnHandLost?.Invoke();

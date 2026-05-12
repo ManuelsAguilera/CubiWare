@@ -131,31 +131,30 @@ namespace CubiWare.Core.Services
                 yield break;
             }
 
-            try
+            LogInfo($"QueryStreamAsync called with prompt: {prompt}");
+
+            string mockResponse = "Mock response for: " + prompt;
+            string[] words = mockResponse.Split(' ');
+
+            await foreach (var token in EnumerateTokens(words, ct))
             {
-                LogInfo($"QueryStreamAsync called with prompt: {prompt}");
-
-                string mockResponse = "Mock response for: " + prompt;
-                string[] words = mockResponse.Split(' ');
-
-                foreach (string word in words)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    await Task.Yield();
-                    yield return word + " ";
-                }
-
-                LogInfo("QueryStreamAsync completed.");
+                yield return token;
             }
-            catch (OperationCanceledException)
+
+            LogInfo("QueryStreamAsync completed.");
+        }
+
+        /// <summary>
+        /// Helper enumerator that yields tokens without a try-catch block,
+        /// avoiding CS1626 (cannot yield in try block with catch clauses).
+        /// </summary>
+        private async IAsyncEnumerable<string> EnumerateTokens(string[] words, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+        {
+            foreach (string word in words)
             {
-                LogWarning("QueryStreamAsync was cancelled.");
-                OnError?.Invoke("Stream cancelled.");
-            }
-            catch (Exception ex)
-            {
-                LogError($"QueryStreamAsync failed: {ex.Message}", ServiceErrorCode.LLMConnectionFailed);
-                OnError?.Invoke(ex.Message);
+                ct.ThrowIfCancellationRequested();
+                await Task.Yield();
+                yield return word + " ";
             }
         }
     }

@@ -4,6 +4,7 @@ using UnityEngine;
 using CubiWare.Core.Logging;
 using CubiWare.Core.Services;
 using CubiWare.Core.Interfaces;
+using ARcadeRush.Core;
 
 namespace CubiWare.Core
 {
