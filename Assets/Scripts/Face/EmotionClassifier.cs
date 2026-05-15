@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using CubiWare.Core.Logging;
  
 namespace ARcadeRush.Face
 {
@@ -63,7 +62,6 @@ namespace ARcadeRush.Face
  
         // ── Private state ─────────────────────────────────────────────────────────
         private FaceLandmarkReader _reader;
-        private const string LogServiceName = "EmotionClassifier";
  
         // Smoothed confidence per emotion, indexed by (int)EmotionLabel
         private float[] _confidence = new float[4];
@@ -85,6 +83,13 @@ namespace ARcadeRush.Face
         {
             // ── Head-pose gate ─────────────────────────────────────────────────
             if (_reader.HeadConfidence < _minHeadConfidence) return;
+
+            // During calibration phase, metrics are collected but emotions not confirmed
+            if (!_reader.IsCalibrated) 
+            {
+                //Debug.Log("[EmotionClassifier] ⏳ Calibrating... (metrics only, no emotion confirmation)");
+                return;
+            }
  
             // ── Read metrics relative to calibrated neutral ────────────────────
             // Using relative values removes a lot of person-to-person variance.
@@ -121,12 +126,12 @@ namespace ARcadeRush.Face
                 + Mathf.Max(0f, eyeSquint - 0.10f) * _angryEyeSquintWeight
                 + Mathf.Max(0f, browLow   - 0.05f) * _angryBrowLowWeight);
             
-            ServiceLogger.Instance.LogInfo(LogServiceName, $"Metrics: mouth={_reader.GetRelativeMetric(0):F3} eyeL={_reader.GetRelativeMetric(1):F3} " +
-            $"eyeR={_reader.GetRelativeMetric(2):F3} brow={_reader.GetRelativeMetric(3):F3} " +
-            $"smile={_reader.GetRelativeMetric(4):F3} furrow={_reader.GetRelativeMetric(5):F3}");
+            //Debug.Log($"[Metrics] mouth={_reader.GetRelativeMetric(0):F3} eyeL={_reader.GetRelativeMetric(1):F3} " +
+            //    $"eyeR={_reader.GetRelativeMetric(2):F3} brow={_reader.GetRelativeMetric(3):F3} " +
+            //    $"smile={_reader.GetRelativeMetric(4):F3} furrow={_reader.GetRelativeMetric(5):F3}");
  
-            ServiceLogger.Instance.LogInfo(LogServiceName, $"RawScores: N:{rawNeutral:F3} H:{rawHappy:F3} S:{rawSurp:F3} A:{rawAngry:F3} " +
-            $"(furrow={furrow:F3} eyeSquint={eyeSquint:F3} browLow={browLow:F3})");
+            //Debug.Log($"[RawScores] N:{rawNeutral:F3} H:{rawHappy:F3} S:{rawSurp:F3} A:{rawAngry:F3} " +
+            //    $"(furrow={furrow:F3} eyeSquint={eyeSquint:F3} browLow={browLow:F3})");
  
             // ── EMA smoothing of confidence scores ─────────────────────────────
             _confidence[(int)EmotionLabel.Neutral]   = Mathf.Lerp(rawNeutral, _confidence[(int)EmotionLabel.Neutral],   _confidenceEma);
@@ -155,9 +160,9 @@ namespace ARcadeRush.Face
                 if (_candidateHoldTime >= _holdSeconds && _currentEmotion != detected && _reader.IsCalibrated)
                 {
                     _currentEmotion = detected;
-                    ServiceLogger.Instance.LogInfo(LogServiceName, $"✓ CONFIRMED: {_currentEmotion} " +
-                              $"| scores N:{_confidence[0]:F2} H:{_confidence[1]:F2} " +
-                              $"S:{_confidence[2]:F2} A:{_confidence[3]:F2}");
+                    //Debug.Log($"[EmotionClassifier] ✓ CONFIRMED: {_currentEmotion} " +
+                    //          $"| scores N:{_confidence[0]:F2} H:{_confidence[1]:F2} " +
+                    //          $"S:{_confidence[2]:F2} A:{_confidence[3]:F2}");
                     OnEmotionChanged?.Invoke(_currentEmotion);
                 }
             }
@@ -165,11 +170,11 @@ namespace ARcadeRush.Face
             {
                 _candidateEmotion  = detected;
                 _candidateHoldTime = 0f;
-                ServiceLogger.Instance.LogInfo(LogServiceName, $"→ Candidate: {_candidateEmotion} " +
-                          $"(smile={smile:F3} mouth={mouthOpen:F3} brow={browRaise:F3} furrow={furrow:F3})");
+                //Debug.Log($"[EmotionClassifier] → Candidate: {_candidateEmotion} " +
+                //          $"(smile={smile:F3} mouth={mouthOpen:F3} brow={browRaise:F3} furrow={furrow:F3})");
             }
 
-            ServiceLogger.Instance.LogInfo(LogServiceName, $"Scores: N:{_confidence[0]:F3} H:{_confidence[1]:F3} S:{_confidence[2]:F3} A:{_confidence[3]:F3} | Head:{_reader.HeadConfidence:F2}");
+            //Debug.Log($"[Scores] N:{_confidence[0]:F3} H:{_confidence[1]:F3} S:{_confidence[2]:F3} A:{_confidence[3]:F3} | Head:{_reader.HeadConfidence:F2}");           
 
         }
  
