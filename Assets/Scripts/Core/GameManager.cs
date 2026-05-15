@@ -172,9 +172,20 @@ namespace ARcadeRush.Core
             CurrentMiniGame = game;
             State = GameState.Playing;
             CurrentScore = 0;
+            
+            var deps = new MiniGameDependencies 
+            {
+                GameManager = this,
+                Camera = CameraFeedCtrl.Instance,
+                MediaPipe = MediaPipeController.Instance,
+                LLM = LLMConnector.Instance,
+            };
+
+            game.OnStart(deps);
 
             OnScoreChanged?.Invoke(CurrentScore);
             OnGameStarted?.Invoke();
+            
         }
 
         public void EndGame()
