@@ -3,6 +3,8 @@ using System.Text;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Networking;
+using CubiWare.Core.Services;
+using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Core
 {
@@ -45,20 +47,42 @@ namespace ARcadeRush.Core
 
         private GroqConfig _config;
 
+        /// <summary>
+        /// Service-layer LLM service for decoupled Groq API interactions.
+        /// </summary>
+        private GroqLLMService _llmService;
+
+        private readonly ServiceLogger _logger = ServiceLogger.Instance;
+
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
             Instance = this;
             DontDestroyOnLoad(transform.root.gameObject);
 
             _config = Resources.Load<GroqConfig>("GroqConfig");
             if (_config == null || string.IsNullOrEmpty(_config.ApiKey))
             {
-                Debug.LogError("LLMConnector: Groq API key invalid or missing. Check GroqConfig.asset.");
+                _logger.LogError("LLMConnector", "Groq API key invalid or missing. Check GroqConfig.asset.", ServiceErrorCode.LLMAuthenticationFailed);
+            }
+
+            // Initialize the service-layer provider
+            _llmService = new GroqLLMService();
+            _ = InitializeLlmServiceAsync();
+        }
+
+        /// <summary>
+        /// Initializes the service-layer LLM provider asynchronously.
+        /// </summary>
+        private async System.Threading.Tasks.Task InitializeLlmServiceAsync()
+        {
+            bool initialized = await _llmService.InitializeAsync();
+            if (initialized)
+            {
+                _logger.LogInfo("LLMConnector", "GroqLLMService initialized successfully.");
+            }
+            else
+            {
+                _logger.LogError("LLMConnector", "GroqLLMService failed to initialize.", ServiceErrorCode.NotInitialized);
             }
         }
 
@@ -66,9 +90,12 @@ namespace ARcadeRush.Core
         {
             if (_config == null || string.IsNullOrEmpty(_config.ApiKey))
             {
+                _logger.LogError("LLMConnector", "API Key missing in Ask()", ServiceErrorCode.LLMAuthenticationFailed);
                 onError?.Invoke("API Key missing");
                 return;
             }
+
+            _logger.LogInfo("LLMConnector", $"Ask called. Delegating to existing Groq pipeline. Prompt: {systemPrompt} | User: {userMessage}");
 
             StartCoroutine(CoAskGroq(systemPrompt, userMessage, onComplete, onError, false));
         }
@@ -92,7 +119,7 @@ namespace ARcadeRush.Core
             using (UnityWebRequest request = new UnityWebRequest(GROQ_API_URL, "POST"))
             {
                 byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw); 
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 request.downloadHandler = new DownloadHandlerBuffer();
                 
                 request.SetRequestHeader("Content-Type", "application/json");
@@ -102,25 +129,25 @@ namespace ARcadeRush.Core
 
                 if (request.result == UnityWebRequest.Result.ConnectionError)
                 {
-                    Debug.LogError("LLMConnector: Connection failed. " + request.error);
+                    _logger.LogError("LLMConnector", "Connection failed. " + request.error, ServiceErrorCode.LLMConnectionFailed);
                     onError?.Invoke("Connection failed");
                 }
                 else if (request.responseCode == 401)
                 {
-                    Debug.LogError("LLMConnector: Groq API key invalid or missing. Check GroqConfig.asset.");
+                    _logger.LogError("LLMConnector", "Groq API key invalid or missing. Check GroqConfig.asset.", ServiceErrorCode.LLMAuthenticationFailed);
                     onError?.Invoke("Unauthorized");
                 }
                 else if (request.responseCode == 429)
                 {
                     if (!isRetry)
                     {
-                        Debug.LogWarning("LLMConnector: Rate limited. Retrying in 2 seconds...");
+                        _logger.LogWarning("LLMConnector", "Rate limited. Retrying in 2 seconds...");
                         yield return new WaitForSeconds(2f);
                         StartCoroutine(CoAskGroq(systemPrompt, userMessage, onComplete, onError, true));
                     }
                     else
                     {
-                        Debug.LogError("LLMConnector: Rate limited again. Failing.");
+                        _logger.LogError("LLMConnector", "Rate limited again. Failing.", ServiceErrorCode.LLMRateLimited);
                         onError?.Invoke("Rate limited");
                     }
                 }
@@ -142,19 +169,19 @@ namespace ARcadeRush.Core
                         }
                         else
                         {
-                            Debug.LogWarning("LLMConnector: Parsed successfully but text was empty.");
+                            _logger.LogWarning("LLMConnector", "Parsed successfully but text was empty.");
                             onError?.Invoke("Empty response");
                         }
                     }
                     catch (Exception e)
                     {
-                        Debug.LogError("LLMConnector: Failed to parse response. " + e.Message);
+                        _logger.LogError("LLMConnector", "Failed to parse response. " + e.Message, ServiceErrorCode.LLMResponseParseError);
                         onError?.Invoke("Parse error");
                     }
                 }
                 else
                 {
-                    Debug.LogError($"LLMConnector: HTTP Error {request.responseCode} - {request.error}");
+                    _logger.LogError("LLMConnector", $"HTTP Error {request.responseCode} - {request.error}", ServiceErrorCode.LLMConnectionFailed);
                     onError?.Invoke("HTTP Error: " + request.responseCode);
                 }
             }

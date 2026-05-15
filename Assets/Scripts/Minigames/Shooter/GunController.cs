@@ -1,7 +1,8 @@
 using System;
 using System.Collections;
 using UnityEngine;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Minigames.Shooter
 {
     /// <summary>
@@ -93,6 +94,8 @@ namespace ARcadeRush.Minigames.Shooter
         [Header("Debug Input (standalone testing)")]
         [SerializeField] private bool _useDebugInput = false;
         [SerializeField] private float _debugMouseSensitivity = 2f;
+
+        private const string LogServiceName = "GunController";
 
         // Cached rest poses (local values only)
         private Quaternion _cylinderRestRotation;
@@ -460,6 +463,7 @@ namespace ARcadeRush.Minigames.Shooter
             bool hitTarget = false;
             Vector3 hitPoint;
 
+            // Editor-only debug ray — kept for visual debugging in Scene view
             Debug.DrawRay(origin, direction * _maxShootDistance, Color.red, 2f);
 
             Ray ray = new Ray(origin, direction);
@@ -473,12 +477,12 @@ namespace ARcadeRush.Minigames.Shooter
                     OnTargetHit?.Invoke(target);
                     hitTarget = true;
                 }
-                Debug.Log($"[GunController] Hitscan: origin={origin} dir={direction} hit={hit3D.collider.name} point={hitPoint} target={hitTarget}");
+                ServiceLogger.Instance.LogInfo(LogServiceName, $"Hitscan: origin={origin} dir={direction} hit={hit3D.collider.name} point={hitPoint} target={hitTarget}");
             }
             else
             {
                 hitPoint = origin + direction * _maxShootDistance;
-                Debug.Log($"[GunController] Hitscan: origin={origin} dir={direction} miss (max dist) point={hitPoint}");
+                ServiceLogger.Instance.LogInfo(LogServiceName, $"Hitscan: origin={origin} dir={direction} miss (max dist) point={hitPoint}");
             }
 
             if (!hitTarget)

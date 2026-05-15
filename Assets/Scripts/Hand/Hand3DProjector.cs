@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using ARcadeRush.Core;
+using CubiWare.Core.Logging;
 using Mediapipe.Tasks.Components.Containers;
 
 namespace ARcadeRush.Hand
@@ -50,7 +51,7 @@ namespace ARcadeRush.Hand
             TrySubscribeHandEvents();
             if (MediaPipeController.Instance == null)
             {
-                Debug.LogWarning("Hand3DProjector: MediaPipeController not found. Start from Bootstrap scene so singletons are alive.");
+                ServiceLogger.Instance.LogWarning("Hand3DProjector", "MediaPipeController not found. Start from Bootstrap scene so singletons are alive.");
             }
         }
 

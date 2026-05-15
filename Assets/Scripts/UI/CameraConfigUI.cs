@@ -3,7 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using ARcadeRush.Core;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.UI
 {
     /// <summary>
@@ -28,6 +29,7 @@ namespace ARcadeRush.UI
         [SerializeField] private GameObject _configPanel;
         [SerializeField] private TMP_Dropdown _cameraDropdown;
 
+        private const string LogServiceName = "CameraConfigUI";
         private bool _panelOpen = false;
 
         private void Start()
@@ -114,7 +116,7 @@ namespace ARcadeRush.UI
             if (index < 0 || index >= deviceNames.Length) return;
 
             string selectedDevice = deviceNames[index];
-            Debug.Log($"[CamConfig] User selected camera: '{selectedDevice}'");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"User selected camera: '{selectedDevice}'");
 
             if (CameraFeedCtrl.Instance != null)
             {

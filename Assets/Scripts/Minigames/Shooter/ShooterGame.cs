@@ -1,7 +1,10 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using ARcadeRush.Core;
 using ARcadeRush.UI;
+using CubiWare.Core.Interfaces;
+using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Minigames.Shooter
 {
@@ -12,6 +15,11 @@ namespace ARcadeRush.Minigames.Shooter
     /// Hits bandits for points (varies by row), hits innocents for penalties.
     /// 90-second timer. On timeout, shows Game Over screen with final score and restart/menu options.
     /// Implements IMiniGame for scene-independent orchestration.
+    /// 
+    /// Initialization flow:
+    /// 1. SceneLoader loads the scene and calls <see cref="OnStart(MiniGameDependencies)"/>
+    /// 2. OnStart registers with GameManager, subscribes to events, shows start menu
+    /// 3. On timeout/completion, <see cref="OnEnd"/> creates MinigameSessionData and reports to GameManager
     /// </summary>
     public class ShooterGame : MonoBehaviour, IMiniGame
     {
@@ -28,7 +36,7 @@ namespace ARcadeRush.Minigames.Shooter
         [Header("Game Settings")]
         [SerializeField] private int _gameDuration = 90;
         [SerializeField] private int _mainMenuSceneIndex = 1;
-        [SerializeField] private int _thisSceneIndex = 2;
+        [SerializeField] private int _thisSceneIndex = 3;
 
         [Header("Wave Progression")]
         [SerializeField] private string[] _rowOrder = { "Easy", "Medium", "Hard" };
@@ -41,7 +49,7 @@ namespace ARcadeRush.Minigames.Shooter
         [SerializeField] private int _debugScoreIncrement = 10;
         [SerializeField] private KeyCode _debugAddScoreKey = KeyCode.KeypadPlus;
 
-        /// <summary>Must match MG_Shooter in Build Settings (index 2).</summary>
+        /// <summary>Must match Shooter in Build Settings (index 3).</summary>
         public int SceneIndex => _thisSceneIndex;
 
         [Header("State (read-only)")]
@@ -54,138 +62,14 @@ namespace ARcadeRush.Minigames.Shooter
         private Coroutine _waveCo;
         private bool _hasGameEnded;
         private bool _gameReady; // true after setup, false until first unpause
+        private readonly ServiceLogger _logger = ServiceLogger.Instance;
 
-        // ------ Auto-Initialization ------
-
-        private void Start()
-        {
-            _hasGameEnded = false;
-
-            if (_debugSkipStartMenu)
-            {
-                // Skip the start menu — go directly into gameplay for rapid testing.
-                _gunController?.SetAimPreviewActive(true);
-                _gunController?.SetDebugInputAllowed(true);
-
-                _score = 0;
-                _timeRemaining = _gameDuration;
-
-                // Subscribe to gun events (same as DebugStartGame/OnStart)
-                if (_gunController != null)
-                {
-                    _gunController.OnAmmoChanged += HandleAmmoChanged;
-                    _gunController.OnReloadStarted += HandleReloadStarted;
-                    _gunController.OnReloadCompleted += HandleReloadCompleted;
-                    _gunController.OnTargetHit += HandleTargetHit;
-                }
-
-                UpdateHUD();
-
-                _isPlaying = true;
-                _gameReady = false;
-                _isGamePaused = true;
-
-                BeginGame();
-
-                Debug.Log("[ShooterGame] Debug skip: start menu bypassed, game began immediately.");
-                return;
-            }
-
-            // Normal flow — show start menu, wait for button click to play.
-            _hudController?.SetHUDVisible(false);
-            _hudController?.ShowStartMenu("SHOOTER", LastScore > 0 ? LastScore : null, "PRESS SPACE TO START");
-            _audioController?.PauseMusic();
-
-            _isPlaying = true;
-            _gameReady = false;
-            _isGamePaused = true;
-
-            // Subscribe to button events from the start menu panel
-            if (_hudController != null)
-            {
-                _hudController.OnStartClicked += HandleStartClicked;
-                _hudController.OnMainMenuClicked += LoadMainMenu;
-            }
-        }
+        // ── IMiniGame Entry Point ───────────────────────────────────────────
 
         /// <summary>
-        /// Called when the player clicks the start button on the start/game-over panel.
+        /// IMiniGame entry point called by SceneLoader after scene load completes.
+        /// This is the primary initialization path — receives dependencies from Bootstrap/GameManager.
         /// </summary>
-        private void HandleStartClicked()
-        {
-            if (!_isPlaying && _hasGameEnded)
-            {
-                // Game over screen — restart the game
-                Debug.Log("[ShooterGame] Restarting via start button...");
-                if (_deps != null)
-                    OnStart(_deps);
-                else
-                    DebugStartGame();
-                return;
-            }
-
-            if (_isGamePaused)
-            {
-                if (!_gameReady)
-                {
-                    // First-time unpause — begin the game
-                    BeginGame();
-                }
-                else if (_deps?.GameManager != null)
-                {
-                    // Subsequent pause/resume via GameManager
-                    _deps.GameManager.ResumeGame();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Debug/testing entry point. Right-click the component → "Start Game (Debug)".
-        /// Fully self-contained, no Bootstrap/GameManager needed.
-        /// </summary>
-        [ContextMenu("Start Game (Debug)")]
-        public void DebugStartGame()
-        {
-            if (_isPlaying) return;
-
-            _hasGameEnded = false;
-            _hudController?.HideStartMenu();
-
-            _gunController?.SetAimPreviewActive(true);
-            _gunController?.SetDebugInputAllowed(true);
-
-            _score = 0;
-            _timeRemaining = _gameDuration;
-
-            if (_targetManager == null)
-            {
-                Debug.LogError("[ShooterGame] TargetManager not assigned!");
-            }
-
-            // Subscribe to gun events
-            if (_gunController != null)
-            {
-                _gunController.OnAmmoChanged += HandleAmmoChanged;
-                _gunController.OnReloadStarted += HandleReloadStarted;
-                _gunController.OnReloadCompleted += HandleReloadCompleted;
-                _gunController.OnTargetHit += HandleTargetHit;
-            }
-
-            // Initial HUD update
-            UpdateHUD();
-
-            // Show start menu with pause music
-            _isPlaying = true;
-            _gameReady = false;
-            _isGamePaused = true;
-            _hudController?.SetHUDVisible(false);
-            _hudController?.ShowStartMenu("SHOOTER", LastScore > 0 ? LastScore : null, "PRESS SPACE TO START");
-            _audioController?.PauseMusic();
-
-            Debug.Log("[ShooterGame] Game started — start menu shown with pause music.");
-        }
-
-        /// <summary>IMiniGame entry point (used when Bootstrap/GameManager are active).</summary>
         public void OnStart(MiniGameDependencies deps)
         {
             _hasGameEnded = false;
@@ -198,12 +82,30 @@ namespace ARcadeRush.Minigames.Shooter
             _score = 0;
             _timeRemaining = _gameDuration;
 
-            if (_targetManager == null)
+            // Register with GameManager so it owns the game state
+            if (_deps?.GameManager != null)
             {
-                Debug.LogError("[ShooterGame] TargetManager not assigned!");
+                _deps.GameManager.StartGame(this);
+                _logger.LogInfo("ShooterGame", "Registered with GameManager via StartGame().");
+
+                // Inject GameManager reference into audio controller
+                if (_audioController != null)
+                {
+                    _audioController.Initialize(_deps.GameManager);
+                    _logger.LogInfo("ShooterGame", "GameManager injected into GameAudioController.");
+                }
+            }
+            else
+            {
+                _logger.LogWarning("ShooterGame", "No GameManager in deps — running without global state tracking.");
             }
 
-            // Subscribe to score changes for HUD updates
+            if (_targetManager == null)
+            {
+                _logger.LogError("ShooterGame", "TargetManager not assigned!", ServiceErrorCode.MinigameDependencyMissing);
+            }
+
+            // Subscribe to GameManager events
             if (_deps?.GameManager != null)
             {
                 _deps.GameManager.OnScoreChanged += HandleScoreChanged;
@@ -211,7 +113,7 @@ namespace ARcadeRush.Minigames.Shooter
                 _deps.GameManager.OnGameResumed += HandleGameResumed;
             }
 
-            // Subscribe to gun ammo/reload events and target hit (scoring handled via HandleTargetHit)
+            // Subscribe to gun ammo/reload events and target hit
             if (_gunController != null)
             {
                 _gunController.OnAmmoChanged += HandleAmmoChanged;
@@ -231,9 +133,13 @@ namespace ARcadeRush.Minigames.Shooter
             _hudController?.ShowStartMenu("SHOOTER", LastScore > 0 ? LastScore : null, "PRESS SPACE TO START");
             _audioController?.PauseMusic();
 
-            Debug.Log("[ShooterGame] Game started — start menu shown with pause music.");
+            _logger.LogInfo("ShooterGame", "OnStart completed — start menu shown.");
         }
 
+        /// <summary>
+        /// Called when the game ends (timeout, victory, etc.).
+        /// Reports session data to GameManager via MinigameSessionData.
+        /// </summary>
         public void OnEnd()
         {
             if (_hasGameEnded) return;
@@ -247,6 +153,33 @@ namespace ARcadeRush.Minigames.Shooter
 
             // Store final score for MainMenu to display
             LastScore = _score;
+
+            // ── Create and report session data ──────────────────────────────
+            var sessionData = new MinigameSessionData
+            {
+                MinigameName = "Shooter",
+                Score = _score,
+                Completed = _timeRemaining <= 0, // Completed if timer ran out (played full duration)
+                StartTime = DateTime.Now.AddSeconds(-(_gameDuration - _timeRemaining)),
+                EndTime = DateTime.Now,
+                DurationSeconds = _gameDuration - _timeRemaining,
+                CustomStats = new System.Collections.Generic.Dictionary<string, object>
+                {
+                    { "TimeRemaining", _timeRemaining },
+                    { "GameDuration", _gameDuration }
+                }
+            };
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.CollectMinigameData(sessionData);
+                _logger.LogInfo("ShooterGame",
+                    $"Session data reported: Score={sessionData.Score}, Duration={sessionData.DurationSeconds:F1}s");
+            }
+            else
+            {
+                _logger.LogWarning("ShooterGame", "GameManager.Instance is null — cannot report session data.");
+            }
 
             _isPlaying = false;
             _gameReady = false;
@@ -265,7 +198,7 @@ namespace ARcadeRush.Minigames.Shooter
                 _targetManager.DeactivateAll();
             }
 
-            // Unsubscribe from GameManager (only if Bootstrap path)
+            // Unsubscribe from GameManager
             if (_deps?.GameManager != null)
             {
                 _deps.GameManager.OnScoreChanged -= HandleScoreChanged;
@@ -290,6 +223,150 @@ namespace ARcadeRush.Minigames.Shooter
 
             // Play pause music for the game over screen
             _audioController?.PauseMusic();
+
+            _logger.LogInfo("ShooterGame", $"Game ended. Final score: {_score}");
+        }
+
+        // ── Unity Lifecycle (Editor-Only) ───────────────────────────────────
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Editor-only auto-initialization. When <see cref="_debugSkipStartMenu"/> is enabled,
+        /// bypasses the start menu and begins gameplay immediately for rapid iteration.
+        /// In production builds, the game is initialized via <see cref="OnStart"/> by SceneLoader.
+        /// </summary>
+        private void Start()
+        {
+            _hasGameEnded = false;
+
+            if (_debugSkipStartMenu)
+            {
+                _logger.LogInfo("ShooterGame", "Debug skip: bypassing start menu (UNITY_EDITOR only).");
+
+                _gunController?.SetAimPreviewActive(true);
+                _gunController?.SetDebugInputAllowed(true);
+
+                _score = 0;
+                _timeRemaining = _gameDuration;
+
+                // Subscribe to gun events
+                if (_gunController != null)
+                {
+                    _gunController.OnAmmoChanged += HandleAmmoChanged;
+                    _gunController.OnReloadStarted += HandleReloadStarted;
+                    _gunController.OnReloadCompleted += HandleReloadCompleted;
+                    _gunController.OnTargetHit += HandleTargetHit;
+                }
+
+                UpdateHUD();
+
+                _isPlaying = true;
+                _gameReady = false;
+                _isGamePaused = true;
+
+                BeginGame();
+
+                _logger.LogInfo("ShooterGame", "Debug skip: start menu bypassed, game began immediately.");
+            }
+            // Normal flow is handled by SceneLoader → OnStart(deps). No auto-init here.
+        }
+
+        /// <summary>
+        /// Debug/testing entry point. Right-click the component → "Start Game (Debug)".
+        /// Fully self-contained — no Bootstrap/GameManager needed.
+        /// Wrapped in UNITY_EDITOR to prevent bypassing the GameManager lifecycle in production builds.
+        /// </summary>
+        [ContextMenu("Start Game (Debug)")]
+        public void DebugStartGame()
+        {
+            if (_isPlaying) return;
+
+            _logger.LogInfo("ShooterGame", "DebugStartGame invoked from editor context menu.");
+
+            _hasGameEnded = false;
+            _hudController?.HideStartMenu();
+
+            _gunController?.SetAimPreviewActive(true);
+            _gunController?.SetDebugInputAllowed(true);
+
+            _score = 0;
+            _timeRemaining = _gameDuration;
+
+            if (_targetManager == null)
+            {
+                _logger.LogError("ShooterGame", "TargetManager not assigned!", ServiceErrorCode.MinigameDependencyMissing);
+            }
+
+            // Subscribe to gun events
+            if (_gunController != null)
+            {
+                _gunController.OnAmmoChanged += HandleAmmoChanged;
+                _gunController.OnReloadStarted += HandleReloadStarted;
+                _gunController.OnReloadCompleted += HandleReloadCompleted;
+                _gunController.OnTargetHit += HandleTargetHit;
+            }
+
+            // Initial HUD update
+            UpdateHUD();
+
+            // Show start menu with pause music
+            _isPlaying = true;
+            _gameReady = false;
+            _isGamePaused = true;
+            _hudController?.SetHUDVisible(false);
+            _hudController?.ShowStartMenu("SHOOTER", LastScore > 0 ? LastScore : null, "PRESS SPACE TO START");
+            _audioController?.PauseMusic();
+
+            _logger.LogInfo("ShooterGame", "DebugStartGame complete — start menu shown.");
+        }
+#endif
+
+        // ── Button Handlers ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// Called when the player clicks the start button on the start/game-over panel.
+        /// </summary>
+        private void HandleStartClicked()
+        {
+            if (!_isPlaying && _hasGameEnded)
+            {
+                // Game over screen — restart the game
+                _logger.LogInfo("ShooterGame", "Restarting via start button...");
+                if (_deps != null)
+                    OnStart(_deps);
+#if UNITY_EDITOR
+                else
+                    DebugStartGame();
+#endif
+                return;
+            }
+
+            if (_isGamePaused)
+            {
+                if (!_gameReady)
+                {
+                    // First-time unpause — begin the game
+                    BeginGame();
+                }
+                else if (_deps?.GameManager != null)
+                {
+                    // Subsequent pause/resume via GameManager
+                    _deps.GameManager.ResumeGame();
+                }
+            }
+        }
+
+        /// <summary>Load the main menu scene (e.g., from a UI button).</summary>
+        public void LoadMainMenu()
+        {
+            if (SceneLoader.Instance != null)
+            {
+                SceneLoader.Instance.LoadScene(_mainMenuSceneIndex);
+            }
+            else
+            {
+                _logger.LogWarning("ShooterGame", "SceneLoader.Instance is null — cannot load MainMenu.");
+            }
         }
 
         /// <summary>Add score directly (used by debug mode and by Target when hit).</summary>
@@ -299,7 +376,7 @@ namespace ARcadeRush.Minigames.Shooter
             UpdateHUD();
         }
 
-        // --- Wave Progression ---
+        // ── Wave Progression ───────────────────────────────────────────────
 
         private IEnumerator CoWaveProgression()
         {
@@ -315,8 +392,6 @@ namespace ARcadeRush.Minigames.Shooter
                 _hudController?.ShowWave(rowLabel);
 
                 // Set music intensity when entering a new wave
-                // Maps from row label so intensity follows the row order (up and down):
-                // Easy → 1, Medium → 2, Hard → 3
                 int intensity = _rowOrder[wave] switch
                 {
                     "Easy" => 1,
@@ -363,7 +438,7 @@ namespace ARcadeRush.Minigames.Shooter
             }
         }
 
-        // --- Timer ---
+        // ── Timer ───────────────────────────────────────────────────────────
 
         private void TimerTick()
         {
@@ -380,11 +455,11 @@ namespace ARcadeRush.Minigames.Shooter
 
         private void HandleTimeout()
         {
-            Debug.Log("[ShooterGame] Time ran out!");
+            _logger.LogInfo("ShooterGame", "Time ran out!");
             OnEnd();
         }
 
-        // --- HUD ---
+        // ── HUD ─────────────────────────────────────────────────────────────
 
         private void UpdateHUD()
         {
@@ -457,14 +532,14 @@ namespace ARcadeRush.Minigames.Shooter
                 _deps.GameManager.AddScore(target.HitScore);
             }
 
-            Debug.Log($"[ShooterGame] Target hit! Score: {target.HitScore} (total: {_score})");
+            _logger.LogInfo("ShooterGame", $"Target hit! Score: {target.HitScore} (total: {_score})");
             UpdateHUD();
 
             // Trigger score shake effect on the HUD
             _hudController?.PlayScoreShake();
         }
 
-        // --- Unpause / Begin Game ---
+        // ── Unpause / Begin Game ────────────────────────────────────────────
 
         /// <summary>
         /// Called once when the player unpauses for the first time (or after a GameManager pause/resume cycle).
@@ -489,10 +564,10 @@ namespace ARcadeRush.Minigames.Shooter
             // Start timer
             InvokeRepeating(nameof(TimerTick), 1f, 1f);
 
-            Debug.Log("[ShooterGame] Game unpaused — music, wave progression, and timer started.");
+            _logger.LogInfo("ShooterGame", "BeginGame — music, wave progression, and timer started.");
         }
 
-        // --- Input ---
+        // ── Input ───────────────────────────────────────────────────────────
 
         private void Update()
         {
@@ -505,19 +580,6 @@ namespace ARcadeRush.Minigames.Shooter
                 {
                     AddScore(_debugScoreIncrement);
                 }
-            }
-        }
-
-        /// <summary>Load the main menu scene (e.g., from a UI button).</summary>
-        public void LoadMainMenu()
-        {
-            if (SceneLoader.Instance != null)
-            {
-                SceneLoader.Instance.LoadScene(_mainMenuSceneIndex);
-            }
-            else
-            {
-                Debug.LogWarning("[ShooterGame] SceneLoader.Instance is null — cannot load MainMenu.");
             }
         }
     }

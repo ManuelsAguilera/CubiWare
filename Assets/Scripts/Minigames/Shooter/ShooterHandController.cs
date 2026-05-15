@@ -1,6 +1,8 @@
 using UnityEngine;
 using ARcadeRush.Core;
 using ARcadeRush.Hand;
+using CubiWare.Core.Interfaces;
+using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Minigames.Shooter
 {
@@ -9,6 +11,9 @@ namespace ARcadeRush.Minigames.Shooter
     /// - Index fingertip screen position → aim ray (Camera.ScreenPointToRay)
     /// - Closed fist → fire (delegates to GunController which handles hitscan)
     /// - ThumbDown → safety toggle
+    ///
+    /// Hand data is consumed through the <see cref="IHandDetector"/> interface,
+    /// decoupling this controller from MediaPipeController directly.
     ///
     /// Hit detection is handled entirely by GunController (hitscan from muzzle).
     /// This controller only sets the aim direction and triggers shoot/reload.
@@ -38,6 +43,13 @@ namespace ARcadeRush.Minigames.Shooter
         private float _lastFireTime;
         private bool _canFire = true;
 
+        // ── IHandDetector integration ───────────────────────────────────────
+        private IHandDetector _handDetector;
+        private HandLandmarkData _lastHandData;
+        private bool _hasHandData;
+
+        private readonly ServiceLogger _logger = ServiceLogger.Instance;
+
         /// <summary>Target world point the gun should look at (computed from aim ray).</summary>
         private Vector3 _aimTargetPoint;
 
@@ -56,18 +68,65 @@ namespace ARcadeRush.Minigames.Shooter
             _gestureDetector = GetComponent<GestureDetector>();
             _mainCamera = Camera.main;
             _safetyOn = _startWithSafetyOn;
+
+            // Resolve IHandDetector — try finding it as a component first, then
+            // fall back to MediaPipeController's service-layer provider
+            _handDetector = FindFirstObjectByType<MonoBehaviour>() as IHandDetector;
+            if (_handDetector == null && MediaPipeController.Instance != null)
+            {
+                _handDetector = MediaPipeController.Instance.HandDetector;
+                _logger.LogInfo("ShooterHandController",
+                    "IHandDetector resolved from MediaPipeController.HandDetector.");
+            }
+
+            if (_handDetector == null)
+            {
+                _logger.LogWarning("ShooterHandController",
+                    "IHandDetector not available. Hand tracking will be disabled.");
+            }
         }
 
         private void OnEnable()
         {
             _gestureDetector.OnClosedFist += HandleFist;
             _gestureDetector.OnThumbDown += HandleThumbDown;
+
+            if (_handDetector != null)
+            {
+                _handDetector.OnHandDetected += HandleHandDetected;
+                _handDetector.OnHandLost += HandleHandLost;
+                _logger.LogInfo("ShooterHandController",
+                    "Subscribed to IHandDetector events.");
+            }
         }
 
         private void OnDisable()
         {
             _gestureDetector.OnClosedFist -= HandleFist;
             _gestureDetector.OnThumbDown -= HandleThumbDown;
+
+            if (_handDetector != null)
+            {
+                _handDetector.OnHandDetected -= HandleHandDetected;
+                _handDetector.OnHandLost -= HandleHandLost;
+            }
+        }
+
+        /// <summary>
+        /// Caches the latest hand landmark data for use in <see cref="UpdateAimRay"/>.
+        /// </summary>
+        private void HandleHandDetected(HandLandmarkData data)
+        {
+            _lastHandData = data;
+            _hasHandData = data.Landmarks != null && data.Landmarks.Count >= 21;
+        }
+
+        /// <summary>
+        /// Clears cached hand data when tracking is lost.
+        /// </summary>
+        private void HandleHandLost()
+        {
+            _hasHandData = false;
         }
 
         private void Update()
@@ -86,11 +145,58 @@ namespace ARcadeRush.Minigames.Shooter
         /// Uses Camera.ScreenPointToRay for reliable depth projection — same approach
         /// as the debug mouse aiming in GunController.
         ///
-        /// The normalized landmark coords from MediaPipe are mirrored on X (1f - x)
-        /// to match the webcam mirror display.
+        /// Hand data is sourced from <see cref="IHandDetector"/> (via <see cref="_lastHandData"/>)
+        /// instead of directly from MediaPipeController/Hand3DProjector.
+        /// The normalized landmark coords are mirrored on X (1f - x) to match the
+        /// webcam mirror display.
         /// </summary>
         private void UpdateAimRay()
         {
+            // Use IHandDetector data if available; fall back to Hand3DProjector
+            if (_hasHandData && _lastHandData.Landmarks != null && _lastHandData.Landmarks.Count >= 21)
+            {
+                if (_mainCamera == null) _mainCamera = Camera.main;
+                if (_mainCamera == null) return;
+
+                // Index fingertip (landmark 8) in normalized image coords
+                Vector2 tip = _lastHandData.Landmarks[8];
+
+                // Convert to screen pixel position, mirroring X for webcam parity
+                // (matches Hand3DProjector's 1f - landmarks[i].x in HandleHandDetected)
+                Vector3 screenPos = new Vector3(
+                    (1f - tip.x) * Screen.width,
+                    (1f - tip.y) * Screen.height,
+                    0f
+                );
+
+                // Aim origin: project fingertip to a point ~10 units in front of camera
+                AimOrigin = _mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 10f));
+
+                // Cast ray from camera through the fingertip screen position
+                Ray ray = _mainCamera.ScreenPointToRay(screenPos);
+
+                if (Physics.Raycast(ray, out RaycastHit hit, _maxRayDistance, _targetLayer))
+                {
+                    _aimTargetPoint = hit.point;
+                    AimDirection = (_aimTargetPoint - AimOrigin).normalized;
+                }
+                else
+                {
+                    _aimTargetPoint = ray.origin + ray.direction * _maxRayDistance;
+                    AimDirection = ray.direction;
+                }
+
+                IsAiming = true;
+
+                // Debug visualization
+                if (_showDebugRay)
+                {
+                    Debug.DrawRay(AimOrigin, AimDirection * _maxRayDistance, _safetyOn ? Color.yellow : Color.red);
+                }
+                return;
+            }
+
+            // Fallback: read from Hand3DProjector (legacy MediaPipe path)
             var norm = _projector.LastNormalizedLandmarks.landmarks;
             if (norm == null || norm.Count < 21)
             {
@@ -102,31 +208,30 @@ namespace ARcadeRush.Minigames.Shooter
             if (_mainCamera == null) return;
 
             // Index fingertip (landmark 8) in normalized image coords
-            var tip = norm[8];
+            var tipLegacy = norm[8];
 
             // Convert to screen pixel position, mirroring X for webcam parity
-            // (matches Hand3DProjector's 1f - landmarks[i].x in HandleHandDetected)
-            Vector3 screenPos = new Vector3(
-                (1f - tip.x) * Screen.width,
-                (1f - tip.y) * Screen.height,
+            Vector3 screenPosLegacy = new Vector3(
+                (1f - tipLegacy.x) * Screen.width,
+                (1f - tipLegacy.y) * Screen.height,
                 0f
             );
 
             // Aim origin: project fingertip to a point ~10 units in front of camera
-            AimOrigin = _mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 10f));
+            AimOrigin = _mainCamera.ScreenToWorldPoint(new Vector3(screenPosLegacy.x, screenPosLegacy.y, 10f));
 
             // Cast ray from camera through the fingertip screen position
-            Ray ray = _mainCamera.ScreenPointToRay(screenPos);
+            Ray rayLegacy = _mainCamera.ScreenPointToRay(screenPosLegacy);
 
-            if (Physics.Raycast(ray, out RaycastHit hit, _maxRayDistance, _targetLayer))
+            if (Physics.Raycast(rayLegacy, out RaycastHit hitLegacy, _maxRayDistance, _targetLayer))
             {
-                _aimTargetPoint = hit.point;
+                _aimTargetPoint = hitLegacy.point;
                 AimDirection = (_aimTargetPoint - AimOrigin).normalized;
             }
             else
             {
-                _aimTargetPoint = ray.origin + ray.direction * _maxRayDistance;
-                AimDirection = ray.direction;
+                _aimTargetPoint = rayLegacy.origin + rayLegacy.direction * _maxRayDistance;
+                AimDirection = rayLegacy.direction;
             }
 
             IsAiming = true;
