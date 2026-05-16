@@ -73,20 +73,29 @@ namespace ARcadeRush.Minigames.Shooter
         public void OnStart(MiniGameDependencies deps)
         {
             _hasGameEnded = false;
-            _hudController?.HideStartMenu();
 
-            _gunController?.SetAimPreviewActive(true);
-            _gunController?.SetDebugInputAllowed(true);
+            // Defensive fallback: find HUDController if not assigned in the Inspector
+            if (_hudController == null)
+            {
+                _hudController = FindFirstObjectByType<HUDController>(FindObjectsInactive.Include);
+                if (_hudController != null)
+                    _logger.LogWarning("ShooterGame", "_hudController was not assigned in Inspector — resolved via FindFirstObjectByType.");
+                else
+                    _logger.LogError("ShooterGame", "No HUDController found in scene! Start menu will not appear.", ServiceErrorCode.MinigameDependencyMissing);
+            }
+            _hudController?.HideStartMenu();
 
             _deps = deps;
             _score = 0;
             _timeRemaining = _gameDuration;
 
-            // Register with GameManager so it owns the game state
+            // Register with GameManager so it owns the game state.
+            // Use RegisterGame — NOT StartGame — to avoid infinite recursion:
+            // SceneLoader already called OnStart(), and StartGame() would call it again.
             if (_deps?.GameManager != null)
             {
-                _deps.GameManager.StartGame(this);
-                _logger.LogInfo("ShooterGame", "Registered with GameManager via StartGame().");
+                _deps.GameManager.RegisterGame(this);
+                _logger.LogInfo("ShooterGame", "Registered with GameManager via RegisterGame().");
 
                 // Inject GameManager reference into audio controller
                 if (_audioController != null)
@@ -132,6 +141,16 @@ namespace ARcadeRush.Minigames.Shooter
             _hudController?.SetHUDVisible(false);
             _hudController?.ShowStartMenu("SHOOTER", LastScore > 0 ? LastScore : null, "PRESS SPACE TO START");
             _audioController?.PauseMusic();
+
+            // Wire HUD button events so the start and main-menu buttons actually work.
+            // Unsubscribe first to prevent duplicate subscriptions on restart.
+            if (_hudController != null)
+            {
+                _hudController.OnStartClicked -= HandleStartClicked;
+                _hudController.OnStartClicked += HandleStartClicked;
+                _hudController.OnMainMenuClicked -= LoadMainMenu;
+                _hudController.OnMainMenuClicked += LoadMainMenu;
+            }
 
             _logger.LogInfo("ShooterGame", "OnStart completed — start menu shown.");
         }
@@ -216,10 +235,25 @@ namespace ARcadeRush.Minigames.Shooter
                 _gunController.OnTargetHit -= HandleTargetHit;
             }
 
+            // Unsubscribe old HUD button listeners (from the play session), then
+            // show the game-over menu and re-subscribe for the restart/quit buttons.
+            if (_hudController != null)
+            {
+                _hudController.OnStartClicked -= HandleStartClicked;
+                _hudController.OnMainMenuClicked -= LoadMainMenu;
+            }
+
             // Show start/game-over menu in-scene with final score
             _hudController?.SetHUDVisible(false);
             _hudController?.HidePauseOverlay();
             _hudController?.ShowStartMenu("GAME OVER", LastScore, "PRESS SPACE TO RESTART");
+
+            // Re-subscribe HUD events so the restart/main-menu buttons on the game-over screen work
+            if (_hudController != null)
+            {
+                _hudController.OnStartClicked += HandleStartClicked;
+                _hudController.OnMainMenuClicked += LoadMainMenu;
+            }
 
             // Play pause music for the game over screen
             _audioController?.PauseMusic();
@@ -243,9 +277,6 @@ namespace ARcadeRush.Minigames.Shooter
             {
                 _logger.LogInfo("ShooterGame", "Debug skip: bypassing start menu (UNITY_EDITOR only).");
 
-                _gunController?.SetAimPreviewActive(true);
-                _gunController?.SetDebugInputAllowed(true);
-
                 _score = 0;
                 _timeRemaining = _gameDuration;
 
@@ -264,11 +295,19 @@ namespace ARcadeRush.Minigames.Shooter
                 _gameReady = false;
                 _isGamePaused = true;
 
+                // Gun is activated inside BeginGame() — no early activation here
                 BeginGame();
 
                 _logger.LogInfo("ShooterGame", "Debug skip: start menu bypassed, game began immediately.");
             }
-            // Normal flow is handled by SceneLoader → OnStart(deps). No auto-init here.
+            else if (GameManager.Instance == null)
+            {
+                // Editor fallback: no Bootstrap/GameManager running — show start menu manually.
+                // When Bootstrap IS running, SceneLoader calls OnStart(deps) after scene load.
+                _logger.LogInfo("ShooterGame", "No GameManager detected — using editor fallback start menu.");
+                DebugStartGame();
+            }
+            // else: Bootstrap is running → SceneLoader will call OnStart(deps). No auto-init here.
         }
 
         /// <summary>
@@ -283,11 +322,16 @@ namespace ARcadeRush.Minigames.Shooter
 
             _logger.LogInfo("ShooterGame", "DebugStartGame invoked from editor context menu.");
 
+            // Defensive fallback: find HUDController if not assigned in the Inspector
+            if (_hudController == null)
+            {
+                _hudController = FindFirstObjectByType<HUDController>(FindObjectsInactive.Include);
+                if (_hudController != null)
+                    _logger.LogWarning("ShooterGame", "_hudController was not assigned in Inspector — resolved via FindFirstObjectByType (debug).");
+            }
+
             _hasGameEnded = false;
             _hudController?.HideStartMenu();
-
-            _gunController?.SetAimPreviewActive(true);
-            _gunController?.SetDebugInputAllowed(true);
 
             _score = 0;
             _timeRemaining = _gameDuration;
@@ -316,6 +360,15 @@ namespace ARcadeRush.Minigames.Shooter
             _hudController?.SetHUDVisible(false);
             _hudController?.ShowStartMenu("SHOOTER", LastScore > 0 ? LastScore : null, "PRESS SPACE TO START");
             _audioController?.PauseMusic();
+
+            // Wire HUD button events — unsubscribe first to prevent duplicates on restart
+            if (_hudController != null)
+            {
+                _hudController.OnStartClicked -= HandleStartClicked;
+                _hudController.OnStartClicked += HandleStartClicked;
+                _hudController.OnMainMenuClicked -= LoadMainMenu;
+                _hudController.OnMainMenuClicked += LoadMainMenu;
+            }
 
             _logger.LogInfo("ShooterGame", "DebugStartGame complete — start menu shown.");
         }
@@ -550,6 +603,10 @@ namespace ARcadeRush.Minigames.Shooter
             if (_gameReady) return;
             _gameReady = true;
             _isGamePaused = false;
+
+            // Activate gun visuals only when gameplay actually begins
+            _gunController?.SetAimPreviewActive(true);
+            _gunController?.SetDebugInputAllowed(true);
 
             _hudController?.HideStartMenu();
             _hudController?.HidePauseOverlay();
