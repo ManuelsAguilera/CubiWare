@@ -1,6 +1,5 @@
 {
-    "dependencies": {
-    "com.ptc.vuforia.engine": "file:com.ptc.vuforia.engine-11.4.4.tgz",
+  "dependencies": {
     "com.github.homuler.mediapipe": "file:./com.github.homuler.mediapipe",
     "com.unity.ai.navigation": "2.0.9",
     "com.unity.collab-proxy": "2.12.4",

@@ -29,10 +29,10 @@ namespace ARcadeRush.Minigames.Shooter
 
             Debug.Log($"[Target] {label} hit! Score: {points}");
 
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.AddScore(points);
-            }
+            //if (GameManager.Instance != null)
+            //{
+                //GameManager.Instance.AddScore(points);
+            //}
 
             // Play hit effect if assigned
             if (_hitEffect != null)
