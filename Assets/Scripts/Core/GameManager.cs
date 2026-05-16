@@ -161,6 +161,12 @@ namespace ARcadeRush.Core
 
         // ── Existing Game State API ────────────────────────────────────────
 
+        /// <summary>
+        /// Full lifecycle entry: sets state and calls <see cref="IMiniGame.OnStart"/>.
+        /// Use when GameManager is the primary entry point (e.g. Unity Start(),
+        /// BootstrapManager direct load).
+        /// Do NOT call from inside an existing OnStart() — use RegisterGame() instead.
+        /// </summary>
         public void StartGame(IMiniGame game)
         {
             if (game == null)
@@ -173,7 +179,7 @@ namespace ARcadeRush.Core
             State = GameState.Playing;
             CurrentScore = 0;
             
-            var deps = new MiniGameDependencies 
+            var deps = new MiniGameDependencies
             {
                 GameManager = this,
                 Camera = CameraFeedCtrl.Instance,
@@ -186,6 +192,30 @@ namespace ARcadeRush.Core
             OnScoreChanged?.Invoke(CurrentScore);
             OnGameStarted?.Invoke();
             
+        }
+
+        /// <summary>
+        /// Registers an already-active minigame with the GameManager without
+        /// re-invoking <see cref="IMiniGame.OnStart"/>. Use when the minigame was
+        /// entered through SceneLoader (which already called OnStart).
+        /// Sets state, fires events, and establishes scoring ownership.
+        /// </summary>
+        public void RegisterGame(IMiniGame game)
+        {
+            if (game == null)
+            {
+                _logger.LogError("GameManager", "Cannot register a null minigame.", ServiceErrorCode.InvalidState);
+                return;
+            }
+
+            CurrentMiniGame = game;
+            State = GameState.Playing;
+            CurrentScore = 0;
+
+            OnScoreChanged?.Invoke(CurrentScore);
+            OnGameStarted?.Invoke();
+
+            _logger.LogInfo("GameManager", $"Minigame '{game.GetType().Name}' registered (OnStart was already called by SceneLoader).");
         }
 
         public void EndGame()
