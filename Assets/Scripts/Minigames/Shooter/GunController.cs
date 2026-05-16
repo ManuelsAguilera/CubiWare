@@ -1,22 +1,37 @@
+using System;
+using System.Collections;
 using UnityEngine;
-
+using CubiWare.Core.Logging;
+ 
 namespace ARcadeRush.Minigames.Shooter
 {
     /// <summary>
     /// Self-contained visual controller for the revolver gun prefab.
     /// Handles shooting animations (cylinder rotation, cockpit kick, recoil),
-    /// reload animation (barrel hinge open/close), and smooth LookAt aiming.
-    /// 
+    /// reload animation (barrel hinge open/close), smooth LookAt aiming,
+    /// ammo tracking (6-chamber revolver), hitscan detection, aim preview,
+    /// bullet trail visual, and fire rate limiting.
+    ///
     /// MediaPipe-independent — driven entirely by its public API:
     ///   Shoot(), Reload(), LookAt(Vector3)
-    /// 
+    ///
+    /// The hitscan ray originates from _muzzleTransform (barrel tip) along its forward
+    /// direction. An aim preview sphere shows the current hit point continuously.
+    /// On shoot, a bullet trail (LineRenderer) is drawn from muzzle to hit point.
+    ///
     /// Cylinder bore axis is fixed to local Z (Vector3.forward) — confirmed correct for this FBX.
-    /// 
+    ///
     /// Includes an optional debug input mode (mouse click to shoot, P to toggle mouse aim)
     /// for standalone testing outside the MediaPipe pipeline.
     /// </summary>
     public class GunController : MonoBehaviour
     {
+        [Header("Audio")]
+        [SerializeField] private AudioSource _audioSource;
+        [Tooltip("3 gunshot clips that cycle/alternate on each shot.")]
+        [SerializeField] private AudioClip[] _shootSFX;
+        [SerializeField] private AudioClip _reloadSFX;
+
         [Header("Animated Parts")]
         [SerializeField] private Transform _cylinder;
         [SerializeField] private Transform _barrelHinge;
@@ -25,7 +40,6 @@ namespace ARcadeRush.Minigames.Shooter
 
         [Header("Shoot Animation — Cylinder")]
         [SerializeField] private float _cylinderRotationAngle = 60f;
-        // Bore axis is local Z (Vector3.forward) — fixed, not configurable.
 
         [Header("Shoot Animation — Cockpit Kick")]
         [SerializeField] private float _cockpitTravel = 0.05f;
@@ -51,13 +65,42 @@ namespace ARcadeRush.Minigames.Shooter
         [SerializeField] private GameObject _muzzleFlash;
         [SerializeField] private float _muzzleFlashDuration = 0.05f;
 
+        [Header("Ammo")]
+        [SerializeField] private int _maxAmmo = 6;
+        [SerializeField] private bool _autoReloadOnEmpty = true;
+
+        [Header("Hitscan / Shooting")]
+        [Tooltip("Barrel tip transform — ray origin for hitscan. If null, falls back to this transform.")]
+        [SerializeField] private Transform _muzzleTransform;
+        [SerializeField] private float _maxShootDistance = 50f;
+        public LayerMask _hitLayerMask = 0;
+
+        [Header("Fire Rate")]
+        [SerializeField] private float _fireDelay = 0.3f;
+
+        [Header("Aim Preview")]
+        [Tooltip("Optional prefab (e.g. small sphere) placed at the current aim hit point.")]
+        [SerializeField] private GameObject _aimPreviewPrefab;
+        [SerializeField] private Color _aimPreviewValidColor = Color.green;
+        [SerializeField] private Color _aimPreviewInvalidColor = Color.red;
+
+        [Header("Bullet Trail")]
+        [Tooltip("Optional material for the procedural bullet trail LineRenderer.")]
+        [SerializeField] private Material _bulletTrailMaterial;
+        [SerializeField] private float _bulletTrailDuration = 0.1f;
+        [SerializeField] private float _bulletTrailWidth = 0.02f;
+        [SerializeField] private Color _bulletTrailColor = Color.white;
+
         [Header("Debug Input (standalone testing)")]
-        [SerializeField] private bool _useDebugInput = true;
+        [SerializeField] private bool _useDebugInput = false;
+        [SerializeField] private float _debugMouseSensitivity = 2f;
+
+        private const string LogServiceName = "GunController";
 
         // Cached rest poses (local values only)
         private Quaternion _cylinderRestRotation;
-        private Vector3 _cylinderRestLocalPosition; // needed because RotateAround shifts localPosition
-        private Vector3 _cylinderPivotOffset;       // mesh center in _cylinder local space
+        private Vector3 _cylinderRestLocalPosition;
+        private Vector3 _cylinderPivotOffset;
         private Vector3 _cockpitRestPosition;
         private Vector3 _recoilRootRestPosition;
         private Quaternion _barrelHingeRestRotation;
@@ -66,33 +109,110 @@ namespace ARcadeRush.Minigames.Shooter
         private bool _isShooting;
         private bool _isReloading;
         private bool _debugInputEnabled = true;
+        private bool _debugInputAllowed;
+        private int _currentAmmo;
+        private bool _debugOverridingRotation;
+        private float _lastFireTime;
+        private int _lastShootIndex;
+
+        // Aim preview instance
+        private GameObject _aimPreviewInstance;
+        private AimPreview _aimPreviewComponent;
+
+        // Debug yaw/pitch
+        private float _debugYaw;
+        private float _debugPitch;
+
+        // ------ Events ------
+
+        public event Action<int, int> OnAmmoChanged;
+        public event Action OnOutOfAmmo;
+        public event Action OnReloadStarted;
+        public event Action OnReloadCompleted;
+        public event Action<Target> OnTargetHit;
+        public event Action OnShotMissed;
 
         // ------ Public API ------
 
-        /// <summary>True while a shoot animation is playing.</summary>
+        public void SetDebugInputAllowed(bool allowed) => _debugInputAllowed = allowed;
+
         public bool IsShooting => _isShooting;
-
-        /// <summary>True while a reload animation is playing.</summary>
         public bool IsReloading => _isReloading;
+        public int CurrentAmmo => _currentAmmo;
+        public int MaxAmmo => _maxAmmo;
+        public bool IsEmpty => _currentAmmo <= 0;
 
-        /// <summary>
-        /// Fire one shot — muzzle flash, cylinder snap-rotates, then recoil + cockpit kick.
-        /// Ignored if already shooting or reloading.
-        /// </summary>
-        public void Shoot()
+        public Vector3 MuzzlePosition
         {
-            if (_isShooting || _isReloading) return;
-            StartCoroutine(ShootSequence());
+            get
+            {
+                if (_muzzleTransform != null) return _muzzleTransform.position;
+                if (_barrelHinge != null) return _barrelHinge.position;
+                return transform.position;
+            }
+        }
+
+        public Vector3 MuzzleForward
+        {
+            get
+            {
+                if (_muzzleTransform != null) return _muzzleTransform.forward;
+                if (_barrelHinge != null) return _barrelHinge.forward;
+                return transform.forward;
+            }
         }
 
         /// <summary>
-        /// Open and close the barrel hinge for reloading.
-        /// Ignored if already shooting or reloading.
+        /// Fire one shot — muzzle flash, cylinder snap-rotates, then recoil + cockpit kick.
+        /// Returns true if the shot was fired, false if empty, on cooldown, or already animating.
+        /// Performs hitscan from the muzzle, shows bullet trail, and fires events.
         /// </summary>
-        public void Reload()
+        public bool Shoot()
         {
-            if (_isShooting || _isReloading) return;
+            if (_isShooting || _isReloading) return false;
+
+            if (Time.time - _lastFireTime < _fireDelay) return false;
+
+            if (_currentAmmo <= 0)
+            {
+                if (_autoReloadOnEmpty && !_isReloading)
+                    Reload();
+                return false;
+            }
+
+            _currentAmmo--;
+            _lastFireTime = Time.time;
+            OnAmmoChanged?.Invoke(_currentAmmo, _maxAmmo);
+
+            if (_currentAmmo <= 0)
+                OnOutOfAmmo?.Invoke();
+
+            PerformHitscan();
+
+            // Play alternating shoot sound
+            if (_audioSource != null && _shootSFX != null && _shootSFX.Length > 0)
+            {
+                AudioClip clip = _shootSFX[_lastShootIndex % _shootSFX.Length];
+                _audioSource.PlayOneShot(clip);
+                _lastShootIndex++;
+            }
+
+            StartCoroutine(ShootSequence());
+            return true;
+        }
+
+        public bool Reload()
+        {
+            if (_isShooting || _isReloading) return false;
+            if (_currentAmmo >= _maxAmmo) return false;
+
+            OnReloadStarted?.Invoke();
+
+            if (_audioSource != null && _reloadSFX != null)
+                _audioSource.PlayOneShot(_reloadSFX);
+
             StartCoroutine(ReloadSequence());
+            return true;
         }
 
         /// <summary>
@@ -100,6 +220,8 @@ namespace ARcadeRush.Minigames.Shooter
         /// </summary>
         public void LookAt(Vector3 target)
         {
+            if (_debugOverridingRotation) return;
+
             Transform root = _recoilRoot != null ? _recoilRoot : transform;
             Vector3 direction = (target - root.position).normalized;
 
@@ -114,18 +236,29 @@ namespace ARcadeRush.Minigames.Shooter
         private void Awake()
         {
             CacheRestPoses();
+            _currentAmmo = _maxAmmo;
+            OnAmmoChanged?.Invoke(_currentAmmo, _maxAmmo);
+            AutoCreateMuzzlePoint();
+            CreateAimPreview();
         }
 
         private void Update()
         {
-            if (!_useDebugInput) return;
+            UpdateAimPreview();
 
+            if (!_useDebugInput) return;
             HandleDebugInput();
+        }
+
+        public void SetAimPreviewActive(bool active)
+        {
+            if (_aimPreviewInstance != null)
+                _aimPreviewInstance.SetActive(active);
         }
 
         // ------ Coroutines ------
 
-        private System.Collections.IEnumerator ShootSequence()
+        private IEnumerator ShootSequence()
         {
             _isShooting = true;
 
@@ -139,21 +272,14 @@ namespace ARcadeRush.Minigames.Shooter
 
             if (_cylinder != null)
             {
-                // RotateAround the mesh's visual center so the pipe spins
-                // on its own bore axis (local Z) even when the pivot is offset.
                 Vector3 spinCenter = _cylinder.TransformPoint(_cylinderPivotOffset);
                 Vector3 worldAxis  = _cylinder.TransformDirection(Vector3.forward);
-
-                // RotateAround is additive on the transform — no need to track accumulated
-                // rotation here. _cylinderRestRotation stays as the Awake-cached rest pose
-                // so Reload can correctly restore it.
                 _cylinder.RotateAround(spinCenter, worldAxis, _cylinderRotationAngle);
             }
 
-            // Phase 2: Brief gap — muzzle visible, cylinder in next chamber
             yield return new WaitForSeconds(0.02f);
 
-            // Phase 3: Recoil + cockpit kick back (concurrent, then return)
+            // Phase 2: Recoil + cockpit kick back (concurrent, then return)
             float elapsed = 0f;
             float totalDuration = Mathf.Max(_cockpitDuration, _recoilDuration);
 
@@ -161,24 +287,22 @@ namespace ARcadeRush.Minigames.Shooter
             {
                 elapsed += Time.deltaTime;
 
-                // Cockpit — kick out then return
                 if (_cockpit != null)
                 {
                     float t = Mathf.Clamp01(elapsed / _cockpitDuration);
                     float phase = t < 0.5f
-                        ? EaseOutCubic(t * 2f)              // 0→1 (kicking back)
-                        : 1f - EaseInCubic((t - 0.5f) * 2f); // 1→0 (returning)
+                        ? EaseOutCubic(t * 2f)
+                        : 1f - EaseInCubic((t - 0.5f) * 2f);
                     _cockpit.localPosition = _cockpitRestPosition
                         + _cockpitKickAxis.normalized * (_cockpitTravel * phase);
                 }
 
-                // Recoil — kick out then return
                 if (_recoilRoot != null)
                 {
                     float t = Mathf.Clamp01(elapsed / _recoilDuration);
                     float phase = t < 0.4f
-                        ? EaseOutCubic(t / 0.4f)             // 0→1 (kicking back)
-                        : 1f - EaseInCubic((t - 0.4f) / 0.6f); // 1→0 (returning)
+                        ? EaseOutCubic(t / 0.4f)
+                        : 1f - EaseInCubic((t - 0.4f) / 0.6f);
                     _recoilRoot.localPosition = _recoilRootRestPosition
                         + _recoilKickAxis.normalized * (_recoilDistance * phase);
                 }
@@ -186,32 +310,29 @@ namespace ARcadeRush.Minigames.Shooter
                 yield return null;
             }
 
-            // Restore
             if (_cockpit != null)
                 _cockpit.localPosition = _cockpitRestPosition;
 
             if (_recoilRoot != null)
                 _recoilRoot.localPosition = _recoilRootRestPosition;
 
-            // Muzzle flash cleanup
             if (flashInstance != null)
                 Destroy(flashInstance, _muzzleFlashDuration);
 
             _isShooting = false;
         }
 
-        private System.Collections.IEnumerator ReloadSequence()
+        private IEnumerator ReloadSequence()
         {
             _isReloading = true;
 
             if (_barrelHinge != null)
             {
-                // Snap to rest pose first so the open animation always starts from default.
                 _barrelHinge.localRotation = _barrelHingeRestRotation;
 
                 Vector3 axis = _barrelOpenAxis.normalized;
 
-                // Phase 1: Open
+                // Open
                 float elapsed = 0f;
                 while (elapsed < _barrelOpenDuration)
                 {
@@ -222,10 +343,9 @@ namespace ARcadeRush.Minigames.Shooter
                     yield return null;
                 }
 
-                // Phase 2: Hold open
                 yield return new WaitForSeconds(_barrelHoldDuration);
 
-                // Phase 3: Close
+                // Close
                 elapsed = 0f;
                 while (elapsed < _barrelCloseDuration)
                 {
@@ -236,18 +356,18 @@ namespace ARcadeRush.Minigames.Shooter
                     yield return null;
                 }
 
-                // Restore barrel
                 _barrelHinge.localRotation = _barrelHingeRestRotation;
             }
 
-            // Restore cylinder to its original spawn pose so repeated
-            // reload cycles don't accumulate position drift from RotateAround.
             if (_cylinder != null)
             {
                 _cylinder.localPosition = _cylinderRestLocalPosition;
                 _cylinder.localRotation = _cylinderRestRotation;
             }
 
+            _currentAmmo = _maxAmmo;
+            OnAmmoChanged?.Invoke(_currentAmmo, _maxAmmo);
+            OnReloadCompleted?.Invoke();
             _isReloading = false;
         }
 
@@ -257,11 +377,9 @@ namespace ARcadeRush.Minigames.Shooter
         {
             if (_cylinder != null)
             {
-                _cylinderRestRotation      = _cylinder.localRotation;
+                _cylinderRestRotation = _cylinder.localRotation;
                 _cylinderRestLocalPosition = _cylinder.localPosition;
 
-                // Cache the mesh center in _cylinder's local space so
-                // RotateAround spins the pipe in-place (not around the pivot).
                 MeshFilter mf = _cylinder.GetComponentInChildren<MeshFilter>();
                 if (mf != null && mf.sharedMesh != null)
                 {
@@ -282,55 +400,193 @@ namespace ARcadeRush.Minigames.Shooter
 
         private void HandleDebugInput()
         {
-            // P key toggles mouse aiming on/off
+            if (!_debugInputAllowed) return;
+
             if (Input.GetKeyDown(KeyCode.P))
             {
                 _debugInputEnabled = !_debugInputEnabled;
-                Debug.Log($"[GunController] Debug input mode: {(_debugInputEnabled ? "ON (mouse aim)" : "OFF (programmatic only)")}");
+                Cursor.lockState = _debugInputEnabled ? CursorLockMode.Locked : CursorLockMode.None;
+                Cursor.visible = !_debugInputEnabled;
+                _debugOverridingRotation = _debugInputEnabled;
             }
 
-            // Mouse aiming — always use Camera.main so the ray is independent of the gun's transform
-            if (_debugInputEnabled)
+            if (!_debugInputEnabled) return;
+
+            float mouseX = Input.GetAxis("Mouse X") * _debugMouseSensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * _debugMouseSensitivity;
+
+            _debugYaw += mouseX;
+            _debugPitch += mouseY;
+            _debugPitch = Mathf.Clamp(_debugPitch, -80f, 80f);
+
+            // Apply rotation to the gun root
+            Transform root = _recoilRoot != null ? _recoilRoot : transform;
+            root.localRotation = Quaternion.Euler(0f, _debugYaw, _debugPitch);
+
+            if (Input.GetMouseButtonDown(0)) { Shoot(); }
+            if (Input.GetKeyDown(KeyCode.R)) { Reload(); }
+        }
+
+        // ------ Auto Muzzle Creation ------
+
+        private void AutoCreateMuzzlePoint()
+        {
+            if (_muzzleTransform != null) return;
+
+            Transform parent = _barrelHinge != null ? _barrelHinge : transform;
+            MeshFilter mf = _barrelHinge != null ? _barrelHinge.GetComponentInChildren<MeshFilter>() : null;
+
+            GameObject muzzleObj = new GameObject("Muzzle_Auto");
+            muzzleObj.transform.SetParent(parent, false);
+
+            if (mf != null && mf.sharedMesh != null)
             {
-                Camera cam = Camera.main;
-                if (cam != null)
+                Vector3 meshCenter = mf.sharedMesh.bounds.center;
+                Vector3 meshExtents = mf.sharedMesh.bounds.extents;
+                muzzleObj.transform.localPosition = new Vector3(0f, 0f, meshCenter.z + meshExtents.z);
+            }
+            else
+            {
+                muzzleObj.transform.localPosition = new Vector3(0f, 0f, 0.5f);
+            }
+
+            muzzleObj.transform.localRotation = Quaternion.identity;
+            _muzzleTransform = muzzleObj.transform;
+        }
+
+        // ------ Hitscan & Bullet Trail ------
+
+        private void PerformHitscan()
+        {
+            Vector3 origin = MuzzlePosition;
+            Vector3 direction = MuzzleForward;
+            bool hitTarget = false;
+            Vector3 hitPoint;
+
+            // Editor-only debug ray — kept for visual debugging in Scene view
+            Debug.DrawRay(origin, direction * _maxShootDistance, Color.red, 2f);
+
+            Ray ray = new Ray(origin, direction);
+            if (Physics.Raycast(ray, out RaycastHit hit3D, _maxShootDistance, _hitLayerMask, QueryTriggerInteraction.Collide))
+            {
+                hitPoint = hit3D.point;
+                Target target = hit3D.collider.GetComponent<Target>();
+                if (target != null)
                 {
-                    Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-                    if (Physics.Raycast(ray, out RaycastHit hit, 100f))
-                    {
-                        LookAt(hit.point);
-                    }
-                    else
-                    {
-                        LookAt(ray.origin + ray.direction * 50f);
-                    }
+                    target.OnHit();
+                    OnTargetHit?.Invoke(target);
+                    hitTarget = true;
                 }
+                ServiceLogger.Instance.LogInfo(LogServiceName, $"Hitscan: origin={origin} dir={direction} hit={hit3D.collider.name} point={hitPoint} target={hitTarget}");
+            }
+            else
+            {
+                hitPoint = origin + direction * _maxShootDistance;
+                ServiceLogger.Instance.LogInfo(LogServiceName, $"Hitscan: origin={origin} dir={direction} miss (max dist) point={hitPoint}");
             }
 
-            // Left click to shoot
-            if (Input.GetMouseButtonDown(0))
+            if (!hitTarget)
+                OnShotMissed?.Invoke();
+
+            ShowBulletTrail(origin, hitPoint);
+        }
+
+        private void ShowBulletTrail(Vector3 from, Vector3 to)
+        {
+            GameObject trailObj = new GameObject("BulletTrail");
+            trailObj.transform.position = from;
+
+            LineRenderer lr = trailObj.AddComponent<LineRenderer>();
+            lr.positionCount = 2;
+            lr.SetPosition(0, from);
+            lr.SetPosition(1, to);
+            lr.startWidth = _bulletTrailWidth;
+            lr.endWidth = _bulletTrailWidth * 0.5f;
+            lr.material = _bulletTrailMaterial != null
+                ? _bulletTrailMaterial
+                : new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = _bulletTrailColor;
+            lr.endColor = new Color(_bulletTrailColor.r, _bulletTrailColor.g, _bulletTrailColor.b, 0f);
+
+            StartCoroutine(CoFadeTrail(lr, trailObj));
+        }
+
+        private IEnumerator CoFadeTrail(LineRenderer lr, GameObject trailObj)
+        {
+            float elapsed = 0f;
+            Color startColor = _bulletTrailColor;
+            Color endColor = new Color(startColor.r, startColor.g, startColor.b, 0f);
+
+            while (elapsed < _bulletTrailDuration)
             {
-                Shoot();
+                elapsed += Time.deltaTime;
+                float t = elapsed / _bulletTrailDuration;
+                lr.startColor = Color.Lerp(startColor, endColor, t);
+                lr.endColor = new Color(lr.startColor.r, lr.startColor.g, lr.startColor.b, 0f);
+                yield return null;
             }
 
-            // R key to reload
-            if (Input.GetKeyDown(KeyCode.R))
+            Destroy(trailObj);
+        }
+
+        // ------ Aim Preview ------
+
+        private void CreateAimPreview()
+        {
+            if (_aimPreviewPrefab != null)
             {
-                Reload();
+                _aimPreviewInstance = Instantiate(_aimPreviewPrefab, transform);
+                _aimPreviewComponent = _aimPreviewInstance.GetComponent<AimPreview>();
+            }
+            else
+            {
+                _aimPreviewInstance = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                _aimPreviewInstance.name = "AimPreview";
+                _aimPreviewInstance.transform.SetParent(transform, false);
+                _aimPreviewInstance.transform.localScale = Vector3.one * 0.5f;
+                Destroy(_aimPreviewInstance.GetComponent<Collider>());
+                _aimPreviewComponent = _aimPreviewInstance.AddComponent<AimPreview>();
+            }
+        }
+
+        private void UpdateAimPreview()
+        {
+            if (_aimPreviewInstance == null || !_aimPreviewInstance.activeInHierarchy)
+                return;
+
+            if (_isShooting || _isReloading)
+                return;
+
+            Vector3 origin = MuzzlePosition;
+            Vector3 direction = MuzzleForward;
+            Vector3 previewPoint;
+            bool isTarget = false;
+
+            Ray ray = new Ray(origin, direction);
+            if (Physics.Raycast(ray, out RaycastHit hit3D, _maxShootDistance, _hitLayerMask, QueryTriggerInteraction.Collide))
+            {
+                previewPoint = hit3D.point;
+                isTarget = hit3D.collider.GetComponent<Target>() != null;
+            }
+            else
+            {
+                previewPoint = origin + direction * _maxShootDistance;
+            }
+
+            _aimPreviewInstance.transform.position = previewPoint;
+
+            if (_aimPreviewComponent != null)
+            {
+                _aimPreviewComponent.SetPreviewColor(isTarget
+                    ? _aimPreviewValidColor
+                    : _aimPreviewInvalidColor);
             }
         }
 
         // ------ Easing Functions ------
 
-        private static float EaseOutCubic(float t)
-        {
-            return 1f - Mathf.Pow(1f - t, 3f);
-        }
-
-        private static float EaseInCubic(float t)
-        {
-            return t * t * t;
-        }
+        private static float EaseOutCubic(float t) => 1f - Mathf.Pow(1f - t, 3f);
+        private static float EaseInCubic(float t) => t * t * t;
 
         private static float EaseInOutCubic(float t)
         {

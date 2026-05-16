@@ -1,5 +1,11 @@
 using UnityEngine;
 using TMPro;
+using System;
+using System.Threading.Tasks;
+using ARcadeRush.Core;
+using CubiWare.Core.Interfaces;
+using CubiWare.Core.Logging;
+using CubiWare.Core.Services;
 
 namespace ARcadeRush.Hand
 {
@@ -16,15 +22,23 @@ namespace ARcadeRush.Hand
         [SerializeField] private Hand3DProjector _projector;
         [SerializeField] private TMP_Text _statusText;
 
+        private IDataStore _dataStore;
+
         private void Awake()
         {
             if (_projector == null)
                 _projector = GetComponent<Hand3DProjector>();
+
+            // Resolve data store — prefer GameManager, fall back to direct instantiation
+            if (GameManager.Instance != null && GameManager.Instance.DataStore != null)
+                _dataStore = GameManager.Instance.DataStore;
+            else
+                _dataStore = new PlayerPrefsDataStore();
         }
 
-        private void Start()
+        private async void Start()
         {
-            LoadCalibration();
+            await LoadCalibrationAsync();
         }
 
         private void Update()
@@ -80,38 +94,84 @@ namespace ARcadeRush.Hand
             UpdateStatus($"Calibrated FAR ({scale:F3})");
         }
 
-        private void SaveCalibration()
+        private async void SaveCalibration()
         {
             if (_projector == null) return;
             _projector.GetCalibrationScales(out float near, out float mid, out float far);
-            PlayerPrefs.SetFloat(PrefsNear, near);
-            PlayerPrefs.SetFloat(PrefsMid, mid);
-            PlayerPrefs.SetFloat(PrefsFar, far);
-            PlayerPrefs.Save();
+
+            try
+            {
+                await _dataStore.SaveAsync(PrefsNear, near);
+                await _dataStore.SaveAsync(PrefsMid, mid);
+                await _dataStore.SaveAsync(PrefsFar, far);
+            }
+            catch (Exception ex)
+            {
+                ServiceLogger.Instance.LogWarning("HandDepthCalibrator", $"DataStore save failed, falling back to PlayerPrefs: {ex.Message}");
+                // Fallback to raw PlayerPrefs
+                PlayerPrefs.SetFloat(PrefsNear, near);
+                PlayerPrefs.SetFloat(PrefsMid, mid);
+                PlayerPrefs.SetFloat(PrefsFar, far);
+                PlayerPrefs.Save();
+            }
         }
 
-        private void LoadCalibration()
+        private async Task LoadCalibrationAsync()
         {
             if (_projector == null) return;
-            if (PlayerPrefs.HasKey(PrefsNear))
+
+            try
             {
-                _projector.SetCalibrationScales(
-                    PlayerPrefs.GetFloat(PrefsNear),
-                    PlayerPrefs.GetFloat(PrefsMid),
-                    PlayerPrefs.GetFloat(PrefsFar));
-                UpdateStatus("Calibration loaded from PlayerPrefs");
+                bool exists = await _dataStore.ExistsAsync(PrefsNear);
+                if (exists)
+                {
+                    float near = await _dataStore.LoadAsync<float>(PrefsNear);
+                    float mid = await _dataStore.LoadAsync<float>(PrefsMid);
+                    float far = await _dataStore.LoadAsync<float>(PrefsFar);
+                    _projector.SetCalibrationScales(near, mid, far);
+                    UpdateStatus("Calibration loaded from data store");
+                }
+                else
+                {
+                    UpdateStatus("No calibration found — using projector defaults.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                UpdateStatus("No calibration in PlayerPrefs — using projector defaults.");
+                ServiceLogger.Instance.LogWarning("HandDepthCalibrator", $"DataStore load failed, falling back to PlayerPrefs: {ex.Message}");
+                // Fallback to raw PlayerPrefs
+                if (PlayerPrefs.HasKey(PrefsNear))
+                {
+                    _projector.SetCalibrationScales(
+                        PlayerPrefs.GetFloat(PrefsNear),
+                        PlayerPrefs.GetFloat(PrefsMid),
+                        PlayerPrefs.GetFloat(PrefsFar));
+                    UpdateStatus("Calibration loaded from PlayerPrefs (fallback)");
+                }
+                else
+                {
+                    UpdateStatus("No calibration found — using projector defaults.");
+                }
             }
         }
 
-        private void ResetCalibration()
+        private async void ResetCalibration()
         {
-            PlayerPrefs.DeleteKey(PrefsNear);
-            PlayerPrefs.DeleteKey(PrefsMid);
-            PlayerPrefs.DeleteKey(PrefsFar);
+            try
+            {
+                await _dataStore.DeleteAsync(PrefsNear);
+                await _dataStore.DeleteAsync(PrefsMid);
+                await _dataStore.DeleteAsync(PrefsFar);
+            }
+            catch (Exception ex)
+            {
+                ServiceLogger.Instance.LogWarning("HandDepthCalibrator", $"DataStore delete failed, falling back to PlayerPrefs: {ex.Message}");
+                // Fallback to raw PlayerPrefs
+                PlayerPrefs.DeleteKey(PrefsNear);
+                PlayerPrefs.DeleteKey(PrefsMid);
+                PlayerPrefs.DeleteKey(PrefsFar);
+            }
+
             if (_projector != null)
                 _projector.ResetCalibrationScalesToDefaults();
             UpdateStatus("Calibration reset to defaults.");
@@ -119,7 +179,7 @@ namespace ARcadeRush.Hand
 
         private void UpdateStatus(string msg)
         {
-            Debug.Log("[HandDepthCalibrator] " + msg);
+            ServiceLogger.Instance.LogInfo("HandDepthCalibrator", msg);
             if (_statusText != null)
                 _statusText.text = msg;
         }
