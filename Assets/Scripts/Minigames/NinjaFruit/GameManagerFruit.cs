@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections;
 using ARcadeRush.Core;
@@ -8,6 +9,8 @@ public class GameManagerFruit : MonoBehaviour
 {
     [Header("UI Juego")]
     public TMP_Text scoreText;
+    public RawImage cameraOverlay;
+    public CanvasGroup cameraUIAlpha;
 
     [Header("UI Game Over")]
     public GameObject panelGameOver;
@@ -28,6 +31,12 @@ public class GameManagerFruit : MonoBehaviour
         if (panelGameOver != null)
             panelGameOver.SetActive(false);
 
+        // Ensure camera is running using legacy CameraFeedCtrl
+        if (CameraFeedCtrl.Instance != null && !CameraFeedCtrl.Instance.IsPlaying)
+        {
+            CameraFeedCtrl.Instance.StartCamera();
+        }
+
         NewGame();
     }
 
@@ -37,6 +46,9 @@ public class GameManagerFruit : MonoBehaviour
 
         if (panelGameOver != null)
             panelGameOver.SetActive(false);
+
+        // Lower UI Alpha when playing
+        if (cameraUIAlpha != null) cameraUIAlpha.alpha = 0.3f;
 
         ClearScene();
 
@@ -68,6 +80,9 @@ public class GameManagerFruit : MonoBehaviour
 
     public void MostrarGameOver()
     {
+        // Restore UI Alpha
+        if (cameraUIAlpha != null) cameraUIAlpha.alpha = 1f;
+
         blade.enabled = false;
         spawner.enabled = false;
         FindFirstObjectByType<GameTimer>()?.PausarTimer(true);
@@ -76,6 +91,9 @@ public class GameManagerFruit : MonoBehaviour
 
     public void Explode()
     {
+        // Restore UI Alpha
+        if (cameraUIAlpha != null) cameraUIAlpha.alpha = 1f;
+
         blade.enabled = false;
         spawner.enabled = false;
         FindFirstObjectByType<GameTimer>()?.PausarTimer(true);
