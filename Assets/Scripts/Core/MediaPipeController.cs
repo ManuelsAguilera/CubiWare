@@ -137,10 +137,21 @@ namespace ARcadeRush.Core
  
             FlushPendingMediapipeResults();
  
-            if (CameraFeedCtrl.Instance == null) return;
+            if (CameraFeedCtrl.Instance == null)
+            {
+                // Log only occasionally or once
+                return;
+            }
             var webCamTex = CameraFeedCtrl.Instance.ActiveWebCamTexture;
-            if (webCamTex == null || !webCamTex.isPlaying) return;
- 
+            if (webCamTex == null || !webCamTex.isPlaying)
+            {
+                // This might be the culprit.
+                return;
+            }
+            
+            // Log if detected
+            // Debug.Log($"[MediaPipeController] Processing frame...");
+
             Color32[] pixels = webCamTex.GetPixels32();
             int width  = webCamTex.width;
             int height = webCamTex.height;
@@ -179,6 +190,8 @@ namespace ARcadeRush.Core
             {
                 var src   = result.handLandmarks[0];
                 int count = src.landmarks?.Count ?? 0;
+                // Debug.Log($"[MediaPipeController] Hand detected! Landmarks count: {count}");
+
                 var copy  = NormalizedLandmarks.Alloc(count);
                 src.CloneTo(ref copy);
                 _handOutcomeQueue.Enqueue(new PendingHandOutcome { HasLandmarks = true, Landmarks = copy });
@@ -188,6 +201,7 @@ namespace ARcadeRush.Core
                 _handOutcomeQueue.Enqueue(new PendingHandOutcome { HasLandmarks = false });
             }
         }
+
  
         // ── CAMBIO 3: encolar el FaceLandmarkerResult completo ───────────────
         // Antes: clonaba solo los NormalizedLandmarks y descartaba blendshapes

@@ -37,7 +37,7 @@ namespace ARcadeRush.Minigames.Shooter
         [SerializeField] private float _hitEffectDuration = 1f;
 
         [Header("Audio")]
-        [SerializeField] private AudioSource _audioSource;
+        [SerializeField] private GameAudioController _audioController;
         [SerializeField] private AudioClip[] _hitSFX;
         [SerializeField][Range(0f, 1f)] private float _soundChance = 0.25f;
 
@@ -170,10 +170,10 @@ namespace ARcadeRush.Minigames.Shooter
             }
 
             // Play hit sound — 25% chance, randomly picks one of the clips
-            if (_audioSource != null && _hitSFX != null && _hitSFX.Length > 0 && Random.value <= _soundChance)
+            if (_audioController != null && _hitSFX != null && _hitSFX.Length > 0 && Random.value <= _soundChance)
             {
                 AudioClip clip = _hitSFX[Random.Range(0, _hitSFX.Length)];
-                _audioSource.PlayOneShot(clip);
+                _audioController.PlaySFX(clip);
             }
 
             // Stop timeout if active

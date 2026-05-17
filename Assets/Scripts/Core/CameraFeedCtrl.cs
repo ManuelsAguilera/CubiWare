@@ -106,7 +106,7 @@ namespace ARcadeRush.Core
                 WebCamDevice[] devices = WebCamTexture.devices;
                 for (int i = 0; i < devices.Length; i++)
                 {
-                    Debug.Log($"[CamFeed] Found camera [{i}]: {devices[i].name}");
+                    // Debug.Log($"[CamFeed] Found camera [{i}]: {devices[i].name}");
                     _logger.LogInfo("CameraFeedCtrl", $"Found camera [{i}]: {devices[i].name}");
                 }
 

@@ -58,6 +58,10 @@ namespace CubiWare.Core.Logging
             if (context.Level < MinimumLevel)
                 return;
 
+            // Filter out specific verbose shutdown logs
+            if (context.Message.Contains("Shutdown completed successfully"))
+                return;
+
             lock (_lock)
             {
                 _recentLogs.Add(context);

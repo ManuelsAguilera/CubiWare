@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using ARcadeRush.Core;
 
 public class GameManagerFruit : MonoBehaviour
 {
@@ -101,6 +102,13 @@ public class GameManagerFruit : MonoBehaviour
     public void VolverAlMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("MainMenu");
+        if (SceneLoader.Instance != null)
+        {
+            SceneLoader.Instance.LoadSceneAsync("MainMenuNinjaFruit");
+        }
+        else
+        {
+            SceneManager.LoadScene("MainMenuNinjaFruit");
+        }
     }
 }

@@ -1,26 +1,31 @@
+using System.Collections.Generic;
 using UnityEngine;
+using ARcadeRush.Core;
+using CubiWare.Core.Interfaces;
+using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Hand
 {
-    [RequireComponent(typeof(Hand3DProjector))]
     public class HandModel : MonoBehaviour
     {
         [SerializeField] private Color _color = new Color(0.11f, 0.62f, 0.46f, 0.7f); // Teal #1D9E75 with alpha
 
-        [Header("Sizing (FingerVisualizer used ~0.2 cube scale)")]
+        [Header("Sizing")]
         [SerializeField] private float _jointRadius = 0.18f;
         [SerializeField] private float _boneWidth = 0.10f;
         [SerializeField, Tooltip("Scales the entire projected hand (smaller = smaller hand)")]
         private float _overallScale = 0.25f;
 
-        [Header("Motion (FingerVisualizer used Time.deltaTime * 30)")]
+        [Header("Motion")]
         [SerializeField] private float _smoothSpeed = 30f;
 
-        private Hand3DProjector _projector;
+        private IHandDetector _handDetector;
         private Transform[] _joints = new Transform[21];
         private LineRenderer[] _bones = new LineRenderer[20];
         private GameObject _modelRoot;
         private bool _haveLastJointWorld;
+        private List<Vector2> _lastLandmarks;
+        private Camera _mainCamera;
 
         private static readonly int[,] BoneConnections = new int[,]
         {
@@ -33,7 +38,14 @@ namespace ARcadeRush.Hand
 
         private void Awake()
         {
-            _projector = GetComponent<Hand3DProjector>();
+            _mainCamera = Camera.main;
+
+            // Resolve IHandDetector
+            _handDetector = FindFirstObjectByType<MonoBehaviour>() as IHandDetector;
+            if (_handDetector == null && MediaPipeController.Instance != null)
+            {
+                _handDetector = MediaPipeController.Instance.HandDetector;
+            }
 
             _modelRoot = new GameObject("HandVisualRoot");
             _modelRoot.transform.SetParent(transform);
@@ -76,24 +88,54 @@ namespace ARcadeRush.Hand
 
         private void OnEnable()
         {
-            _projector.OnLost += HandleHandLost;
+            if (_handDetector != null)
+            {
+                _handDetector.OnHandDetected += HandleHandDetected;
+                _handDetector.OnHandLost += HandleHandLost;
+            }
         }
 
         private void OnDisable()
         {
-            _projector.OnLost -= HandleHandLost;
+            if (_handDetector != null)
+            {
+                _handDetector.OnHandDetected -= HandleHandDetected;
+                _handDetector.OnHandLost -= HandleHandLost;
+            }
+        }
+
+        private void HandleHandDetected(HandLandmarkData data)
+        {
+            _lastLandmarks = data.Landmarks;
+        }
+
+        private void HandleHandLost()
+        {
+            _lastLandmarks = null;
+            _haveLastJointWorld = false;
+            for (int i = 0; i < 21; i++)
+            {
+                if (_joints[i] != null)
+                    _joints[i].gameObject.SetActive(false);
+            }
+            foreach (LineRenderer lr in _bones)
+            {
+                if (lr != null) lr.enabled = false;
+            }
+            _modelRoot.SetActive(false);
         }
 
         private void Update()
         {
-            var positions = _projector.LandmarkWorldPositions;
-
-            if (positions[0] == Vector3.back)
+            if (_lastLandmarks == null || _lastLandmarks.Count < 21)
             {
                 _haveLastJointWorld = false;
                 _modelRoot.SetActive(false);
                 return;
             }
+
+            if (_mainCamera == null) _mainCamera = Camera.main;
+            if (_mainCamera == null) return;
 
             _modelRoot.SetActive(true);
             _modelRoot.transform.localScale = Vector3.one * _overallScale;
@@ -102,10 +144,18 @@ namespace ARcadeRush.Hand
             bool snap = !_haveLastJointWorld;
             _haveLastJointWorld = true;
 
+            // Simple 2D to 3D mapping for visualization (matching the spirit of Hand3DProjector but local)
             for (int i = 0; i < 21; i++)
             {
+                Vector3 screenPos = new Vector3(
+                    (1f - _lastLandmarks[i].x) * Screen.width,
+                    (1f - _lastLandmarks[i].y) * Screen.height,
+                    10f // Fixed depth for visualization
+                );
+                Vector3 worldPos = _mainCamera.ScreenToWorldPoint(screenPos);
+
                 _joints[i].gameObject.SetActive(true);
-                _joints[i].position = snap ? positions[i] : Vector3.Lerp(_joints[i].position, positions[i], lerpT);
+                _joints[i].position = snap ? worldPos : Vector3.Lerp(_joints[i].position, worldPos, lerpT);
             }
 
             for (int i = 0; i < 20; i++)
@@ -125,21 +175,6 @@ namespace ARcadeRush.Hand
                 _bones[i].SetPosition(0, a);
                 _bones[i].SetPosition(1, b);
             }
-        }
-
-        private void HandleHandLost()
-        {
-            _haveLastJointWorld = false;
-            for (int i = 0; i < 21; i++)
-            {
-                if (_joints[i] != null)
-                    _joints[i].gameObject.SetActive(false);
-            }
-            foreach (LineRenderer lr in _bones)
-            {
-                if (lr != null) lr.enabled = false;
-            }
-            _modelRoot.SetActive(false);
         }
     }
 }
