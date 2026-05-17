@@ -62,7 +62,7 @@ namespace ARcadeRush.Face
         {
             if (!File.Exists(_filePath))
             {
-                string header = "Timestamp,Label,MouthOpen,EyeL,EyeR,BrowRaise,Smile,Furrow,Frown,MouthPress,Pucker,HeadConfidence\n";
+                string header = "Timestamp,Label,MouthOpen,EyeL,EyeR,BrowRaise,Smile,Furrow,Frown,MouthPress,Funnel,Squint,BlinkAvg,HeadConfidence\n";
                 File.WriteAllText(_filePath, header);
                 _headerWritten = true;
                 ServiceLogger.Instance.LogInfo("EmotionDataLogger", $"Created new log file at: {_filePath}");
@@ -82,8 +82,8 @@ namespace ARcadeRush.Face
             float[] metrics = _reader.NormalizedMetrics;
             string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
             
-            // Format: Timestamp,Label,MouthOpen,EyeL,EyeR,BrowRaise,Smile,Furrow,Frown,MouthPress,Pucker,HeadConfidence
-            string line = string.Format("{0},{1},{2:F4},{3:F4},{4:F4},{5:F4},{6:F4},{7:F4},{8:F4},{9:F4},{10:F4},{11:F4}\n",
+            // Format: Timestamp,Label,MouthOpen,EyeL,EyeR,BrowRaise,Smile,Furrow,Frown,MouthPress,Funnel,Squint,BlinkAvg,HeadConfidence
+            string line = string.Format("{0},{1},{2:F4},{3:F4},{4:F4},{5:F4},{6:F4},{7:F4},{8:F4},{9:F4},{10:F4},{11:F4},{12:F4},{13:F4}\n",
                 timestamp,
                 label,
                 metrics[0], // MouthOpen
@@ -94,7 +94,9 @@ namespace ARcadeRush.Face
                 metrics[5], // Furrow
                 metrics[6], // Frown
                 metrics[7], // MouthPress
-                metrics[8], // Pucker
+                metrics[8], // Funnel
+                metrics[9], // Squint
+                _reader.BlinkAverage,
                 _reader.HeadConfidence
             );
  

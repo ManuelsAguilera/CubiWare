@@ -33,7 +33,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         private const string LogServiceName = "EmotionTestGame";
         private MiniGameDependencies _deps;
         private bool _isPlaying = false;
-        private bool _emotionModuleActive = true;
+        private bool _emotionModuleActive = false;
 
         public void OnStart(MiniGameDependencies deps)
         {
@@ -53,8 +53,8 @@ namespace ARcadeRush.Minigames.EmotionTest
             if (_emotionDebugDisplay != null)
             {
                 _emotionDebugDisplay.Initialize(_deps);
-                _emotionDebugDisplay.EnableModule(true);
-                _emotionModuleActive = true;
+                _emotionDebugDisplay.EnableModule(false);
+                _emotionModuleActive = false;
             }
         }
 
@@ -135,10 +135,12 @@ namespace ARcadeRush.Minigames.EmotionTest
         {
             _emotionModuleActive = !_emotionModuleActive;
 
+            var classifier = FindFirstObjectByType<EmotionClassifier>();
+            if (classifier != null)
+                classifier.SetEnabled(_emotionModuleActive);
+
             if (_emotionDebugDisplay != null)
-            {
                 _emotionDebugDisplay.EnableModule(_emotionModuleActive);
-            }
 
             ServiceLogger.Instance.LogInfo(LogServiceName, $"Emotion module {(_emotionModuleActive ? "ENABLED" : "DISABLED")}");
         }
