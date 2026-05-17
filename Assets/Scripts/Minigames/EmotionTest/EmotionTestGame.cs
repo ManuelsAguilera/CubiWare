@@ -38,6 +38,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         public void OnStart(MiniGameDependencies deps)
         {
             _deps = deps;
+            
             _isPlaying = true;
 
             ServiceLogger.Instance.LogInfo(LogServiceName, "Starting Emotion Debug Scene");
@@ -78,27 +79,37 @@ namespace ARcadeRush.Minigames.EmotionTest
         {
             if (_deps?.Camera == null)
             {
-                ServiceLogger.Instance.LogWarning(LogServiceName, "Camera not available in dependencies!");
+                Debug.LogWarning("[EmotionTestGame] Camera not available in dependencies!");
                 return;
             }
 
-            if (_cameraDisplay != null)
+            if (_cameraDisplay == null)
             {
-                _deps.Camera.SetOutputImage(_cameraDisplay);
+                Debug.LogWarning("[EmotionTestGame] Camera display RawImage not assigned!");
+            }
 
-                if (!_deps.Camera.IsPlaying)
-                {
-                    _deps.Camera.StartCamera();
-                    ServiceLogger.Instance.LogInfo(LogServiceName, "Camera started");
-                }
-                else
-                {
-                    ServiceLogger.Instance.LogInfo(LogServiceName, "Camera already active");
-                }
+            _deps.Camera.SetOutputImage(_cameraDisplay);
+
+            if (!_deps.Camera.IsPlaying)
+            {
+                _deps.Camera.StartCamera();
+                Debug.Log("[EmotionTestGame] Camera started.");
             }
             else
             {
-                ServiceLogger.Instance.LogWarning(LogServiceName, "Camera display RawImage not assigned!");
+                // Camera already running from another scene — manually push the
+                // existing WebCamTexture into the new scene's RawImage right now.
+                if (_deps.Camera.ActiveWebCamTexture != null)
+                {
+                    _cameraDisplay.texture = _deps.Camera.ActiveWebCamTexture;
+                    Debug.Log("[EmotionTestGame] Camera already active, texture reassigned to new display.");
+                }
+                else
+                {
+                    // Texture not ready yet for some reason, start fresh
+                    _deps.Camera.StartCamera();
+                    Debug.Log("[EmotionTestGame] Camera active but texture null, restarting.");
+                }
             }
         }
 
@@ -137,9 +148,15 @@ namespace ARcadeRush.Minigames.EmotionTest
             ServiceLogger.Instance.LogInfo(LogServiceName, "Reset button pressed");
 
             if (_emotionDebugDisplay != null)
-            {
                 _emotionDebugDisplay.Reset();
-            }
+
+            var reader = FindFirstObjectByType<FaceLandmarkReader>();
+            if (reader != null)
+                reader.ResetCalibration();
+
+            var classifier = FindFirstObjectByType<EmotionClassifier>();
+            if (classifier != null)
+                classifier.ResetState();
         }
 
         private void OnExit()

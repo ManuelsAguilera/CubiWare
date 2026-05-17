@@ -26,7 +26,7 @@ namespace ARcadeRush.Face
         // ── Inspector — Timing ────────────────────────────────────────────────────
         [Header("Timing")]
         [Tooltip("Seconds the winning emotion must remain dominant before it is confirmed.")]
-        [SerializeField] private float _holdSeconds = 0.30f;
+        [SerializeField] private float _holdSeconds = 0.15f;
         [Tooltip("Minimum head-pose confidence required to update the classifier.")]
         [Range(0f, 1f)]
         [SerializeField] private float _minHeadConfidence = 0.50f;
@@ -35,30 +35,39 @@ namespace ARcadeRush.Face
         [Header("Confidence Smoothing (EMA per emotion)")]
         [Tooltip("EMA factor for emotion confidence scores. Higher = slower but more stable.")]
         [Range(0f, 0.99f)]
-        [SerializeField] private float _confidenceEma = 0.75f;
+        [SerializeField] private float _confidenceEma = 0.55f;
  
         // ── Inspector — Happy ─────────────────────────────────────────────────────
         [Header("Happy — weight / threshold relative to neutral baseline")]
         [Tooltip("Smile score (lip corner raise) weight.")]
-        [SerializeField] private float _happySmileWeight    = 2.5f;
-        [Tooltip("Penalise excessive mouth openness (open mouth alone is not a smile).")]
-        [SerializeField] private float _happyMouthPenalty   = 1.0f;
+        [SerializeField] private float _happySmileWeight    = 0.0f;
+        [Tooltip("Weight for mouth opening contribution to happiness.")]
+        [SerializeField] private float _happyMouthWeight    = 4.0f;
+        [Tooltip("Weight for pucker (cheek pressure) contribution to happiness.")]
+        [SerializeField] private float _happyPuckerWeight   = 2.0f;
+        [Tooltip("Penalise brow furrow during Happy scoring (subtracts furrow * this value).")]
+        [SerializeField] private float _happyMouthPenalty   = 2.0f;
  
         // ── Inspector — Surprised ─────────────────────────────────────────────────
         [Header("Surprised — weights")]
-        [SerializeField] private float _surpMouthWeight     = 1.5f;
-        [SerializeField] private float _surpEyeWeight       = 1.0f;
-        [SerializeField] private float _surpBrowRaiseWeight = 0.8f;
+        [SerializeField] private float _surpMouthWeight     = 3.0f;
+        [SerializeField] private float _surpEyeWeight       = 0.5f;
+        [SerializeField] private float _surpBrowRaiseWeight = 2.0f;
+        [SerializeField] private float _surpPuckerWeight    = 1.5f; // New: O-face shape
  
         // ── Inspector — Angry ─────────────────────────────────────────────────────
         [Header("Angry — weights")]
-        [SerializeField] private float _angryFurrowWeight   = 2.0f;
-        [SerializeField] private float _angryEyeSquintWeight = 0.5f; // low eye openness = squint
-        [SerializeField] private float _angryBrowLowWeight  = 0.3f;  // brow below neutral
+        [SerializeField] private float _angryFurrowWeight   = 2.0f; // Lowered (user doesn't furrow)
+        [SerializeField] private float _angryBrowLowWeight  = 4.0f; // Boosted (primary user signal)
+        [SerializeField] private float _angryEyeRWeight     = 4.0f; // New: Primary user signal (SNR 10.6)
+        [SerializeField] private float _angryFrownWeight    = 2.0f;  // New: True mouth frown
+        [SerializeField] private float _angryPressWeight    = 5.0f;  // Boosted (secondary user signal)
  
         // ── Inspector — Neutral baseline offset ──────────────────────────────────
         [Header("Neutral — base confidence (opponent to all emotions)")]
-        [SerializeField] private float _neutralBaseScore = 0.50f;
+        [SerializeField] private float _neutralBaseScore = 0.75f;
+        [Tooltip("Additional score added to the current emotion to prevent rapid flickering.")]
+        [SerializeField] private float _hysteresis = 0.05f;
  
         // ── Private state ─────────────────────────────────────────────────────────
         private FaceLandmarkReader _reader;
@@ -99,39 +108,37 @@ namespace ARcadeRush.Face
             float browRaise = _reader.GetRelativeMetric(3);
             float smile     = _reader.GetRelativeMetric(4);
             float furrow    = _reader.GetRelativeMetric(5);
+            float trueFrown = _reader.GetRelativeMetric(6);
+            float mouthPress= _reader.GetRelativeMetric(7);
+            float pucker    = _reader.GetRelativeMetric(8);
  
             float eyeAvg    = (eyeL + eyeR) * 0.5f;
  
             // ── Raw confidence scores (un-smoothed) ────────────────────────────
             float rawNeutral    = _neutralBaseScore;
  
-            // Happy: smile is the primary driver; penalise if mouth is gaping wide
-            // (pure surprise also opens mouth but does NOT raise lip corners)
+            // Happy: vertical smile lift + slight mouth opening + pucker (cheek pressure).
+            // Penalise softly by furrow.
             float rawHappy  = Mathf.Max(0f,
                 smile     * _happySmileWeight
-                - Mathf.Max(0f, mouthOpen - 0.05f) * _happyMouthPenalty);
+                + mouthOpen * _happyMouthWeight
+                + pucker    * _happyPuckerWeight
+                - furrow    * _happyMouthPenalty);
  
-            // Surprised: jaw drop + wide eyes + brow raise
+            // Surprised: jaw drop + brow raise + pucker (O-face)
             float rawSurp = Mathf.Max(0f,
-                Mathf.Max(0f, mouthOpen - 0.04f) * _surpMouthWeight
-                + Mathf.Max(0f, eyeAvg  - 0.02f) * _surpEyeWeight
-                + Mathf.Max(0f, browRaise - 0.02f) * _surpBrowRaiseWeight);
- 
-            // Angry: inner brow furrow + low brow + squinted eyes
-            // Eye squint = eye openness BELOW the neutral baseline
-            float eyeSquint = Mathf.Max(0f, -eyeAvg); // negative eyeAvg = closed
-            float browLow   = Mathf.Max(0f, -browRaise);
+                Mathf.Max(0f, mouthOpen - 0.03f) * _surpMouthWeight
+                + Mathf.Max(0f, eyeAvg  - 0.01f) * _surpEyeWeight
+                + browRaise * _surpBrowRaiseWeight
+                + pucker    * _surpPuckerWeight);
+
+            // Angry: brow furrow + low brow + true frown + mouth press + EyeR (widening)
             float rawAngry = Mathf.Max(0f,
-                Mathf.Max(0f, furrow    - 0.15f) * _angryFurrowWeight
-                + Mathf.Max(0f, eyeSquint - 0.10f) * _angryEyeSquintWeight
-                + Mathf.Max(0f, browLow   - 0.05f) * _angryBrowLowWeight);
-            
-            //Debug.Log($"[Metrics] mouth={_reader.GetRelativeMetric(0):F3} eyeL={_reader.GetRelativeMetric(1):F3} " +
-            //    $"eyeR={_reader.GetRelativeMetric(2):F3} brow={_reader.GetRelativeMetric(3):F3} " +
-            //    $"smile={_reader.GetRelativeMetric(4):F3} furrow={_reader.GetRelativeMetric(5):F3}");
- 
-            //Debug.Log($"[RawScores] N:{rawNeutral:F3} H:{rawHappy:F3} S:{rawSurp:F3} A:{rawAngry:F3} " +
-            //    $"(furrow={furrow:F3} eyeSquint={eyeSquint:F3} browLow={browLow:F3})");
+                Mathf.Max(0f, furrow - 0.05f) * _angryFurrowWeight
+                + Mathf.Max(0f, -browRaise)   * _angryBrowLowWeight
+                + trueFrown  * _angryFrownWeight
+                + mouthPress * _angryPressWeight
+                + Mathf.Max(0f, eyeR) * _angryEyeRWeight);
  
             // ── EMA smoothing of confidence scores ─────────────────────────────
             _confidence[(int)EmotionLabel.Neutral]   = Mathf.Lerp(rawNeutral, _confidence[(int)EmotionLabel.Neutral],   _confidenceEma);
@@ -142,13 +149,16 @@ namespace ARcadeRush.Face
             // ── Pick winning emotion ───────────────────────────────────────────
             EmotionLabel detected = EmotionLabel.Neutral;
             float bestScore = _confidence[(int)EmotionLabel.Neutral];
+            if (_currentEmotion == EmotionLabel.Neutral) bestScore += _hysteresis;
 
-            
             for (int i = 1; i < _confidence.Length; i++)
             {
-                if (_confidence[i] > bestScore)
+                float score = _confidence[i];
+                if ((EmotionLabel)i == _currentEmotion) score += _hysteresis;
+
+                if (score > bestScore)
                 {
-                    bestScore = _confidence[i];
+                    bestScore = score;
                     detected  = (EmotionLabel)i;
                 }
             }
@@ -184,9 +194,19 @@ namespace ARcadeRush.Face
  
         /// <summary>The last confirmed emotion.</summary>
         public EmotionLabel CurrentEmotion => _currentEmotion;
- 
+
         /// <summary>Confidence for a specific emotion in [0..∞] (relative scores, not normalised).</summary>
         public float GetConfidence(EmotionLabel emotion) => _confidence[(int)emotion];
+
+        /// <summary>Resets confidence scores and candidate state to their initial values. Call alongside FaceLandmarkReader.ResetCalibration().</summary>
+        public void ResetState()
+        {
+            for (int i = 0; i < _confidence.Length; i++) _confidence[i] = 0f;
+            _confidence[(int)EmotionLabel.Neutral] = 1f;
+            _currentEmotion   = EmotionLabel.Neutral;
+            _candidateEmotion = EmotionLabel.Neutral;
+            _candidateHoldTime = 0f;
+        }
  
         #endregion
     }

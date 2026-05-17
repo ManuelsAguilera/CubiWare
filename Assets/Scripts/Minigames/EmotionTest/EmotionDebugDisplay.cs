@@ -1,9 +1,10 @@
+using System.Text;
 using UnityEngine;
 using TMPro;
 using ARcadeRush.Core;
 using ARcadeRush.Face;
 using CubiWare.Core.Logging;
- 
+
 namespace ARcadeRush.Minigames.EmotionTest
 {
     /// <summary>
@@ -11,12 +12,10 @@ namespace ARcadeRush.Minigames.EmotionTest
     /// Shows: current emotion, metrics, frame count, detection history.
     /// Can be toggled on/off via button.
     /// </summary>
-    
     public class EmotionTestDebugDisplay : MonoBehaviour
     {
         [Header("Debug Text Display")]
         [SerializeField] private TextMeshProUGUI _debugText;
-        [SerializeField] private TextMeshProUGUI _emotionLabelText;
 
         [Header("Settings")]
         [SerializeField] private bool _showDetailedMetrics = true;
@@ -28,17 +27,12 @@ namespace ARcadeRush.Minigames.EmotionTest
         private FaceLandmarkReader _faceLandmarkReader;
 
         private EmotionLabel _currentEmotion = EmotionLabel.Neutral;
-        private float[] _lastMetrics = new float[4];
         private int _frameCount = 0;
         private string[] _emotionHistory;
         private int _historyIndex = 0;
-
         private bool _isActive = false;
-        private Color _colorHappy = new Color32(39, 196, 100, 255);
-        private Color _colorSurprised = new Color32(0, 150, 200, 255);
-        private Color _colorAngry = new Color32(226, 75, 74, 255);
-        private Color _colorNeutral = new Color32(128, 128, 128, 255);
 
+        private readonly StringBuilder _sb = new StringBuilder(1024);
         private const string LogServiceName = "EmotionDebugDisplay";
 
         public void Initialize(MiniGameDependencies deps)
@@ -46,7 +40,6 @@ namespace ARcadeRush.Minigames.EmotionTest
             _deps = deps;
             _emotionHistory = new string[_historySize];
 
-            // Find EmotionClassifier in scene
             _emotionClassifier = FindFirstObjectByType<EmotionClassifier>();
             _faceLandmarkReader = FindFirstObjectByType<FaceLandmarkReader>();
 
@@ -61,9 +54,7 @@ namespace ARcadeRush.Minigames.EmotionTest
             }
 
             if (_faceLandmarkReader == null)
-            {
                 ServiceLogger.Instance.LogWarning(LogServiceName, "FaceLandmarkReader not found in scene!");
-            }
 
             ServiceLogger.Instance.LogInfo(LogServiceName, "Initialized");
         }
@@ -73,26 +64,13 @@ namespace ARcadeRush.Minigames.EmotionTest
             _isActive = enable;
 
             if (_debugText != null)
-            {
                 _debugText.gameObject.SetActive(enable);
-            }
-
-            if (_emotionLabelText != null)
-            {
-                _emotionLabelText.gameObject.SetActive(enable);
-            }
 
             if (!enable)
             {
                 _frameCount = 0;
                 if (_debugText != null)
-                {
                     _debugText.text = "[EMOTION MODULE DISABLED]";
-                }
-                if (_emotionLabelText != null)
-                {
-                    _emotionLabelText.text = "---";
-                }
             }
 
             ServiceLogger.Instance.LogInfo(LogServiceName, $"Module {(enable ? "ENABLED" : "DISABLED")}");
@@ -104,7 +82,6 @@ namespace ARcadeRush.Minigames.EmotionTest
             _currentEmotion = EmotionLabel.Neutral;
             System.Array.Clear(_emotionHistory, 0, _emotionHistory.Length);
             _historyIndex = 0;
-
             ServiceLogger.Instance.LogInfo(LogServiceName, "Reset");
         }
 
@@ -114,7 +91,6 @@ namespace ARcadeRush.Minigames.EmotionTest
 
             _currentEmotion = emotion;
 
-            // Add to history
             if (_showHistory)
             {
                 _emotionHistory[_historyIndex] = emotion.ToString();
@@ -127,10 +103,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         private void Update()
         {
             if (!_isActive) return;
-
             _frameCount++;
-
-            // Update debug display
             UpdateDebugDisplay();
         }
 
@@ -138,100 +111,85 @@ namespace ARcadeRush.Minigames.EmotionTest
         {
             if (_debugText == null) return;
 
-            string displayText = "";
+            _sb.Clear();
+            _sb.Append("═══ EMOTION DETECTOR DEBUG ═══\n")
+               .Append("Frame: ").Append(_frameCount).Append("\n\n")
+               .Append("Detected Emotion: <b>").Append(_currentEmotion).Append("</b>")
+               .Append(GetEmotionColorTag(_currentEmotion));
 
-            // Header
-            displayText += "═══ EMOTION DETECTOR DEBUG ═══\n";
-            displayText += $"Frame: {_frameCount}\n\n";
-
-            // Current emotion
-            displayText += $"Detected Emotion: <b>{_currentEmotion}</b>\n";
-            displayText += GetEmotionColorTag(_currentEmotion);
-
-            // Metrics if available
-            if (_showDetailedMetrics && _faceLandmarkReader != null)
+            if (_showDetailedMetrics && _faceLandmarkReader != null && _emotionClassifier != null)
             {
-                float[] metrics = _faceLandmarkReader.NormalizedMetrics;
-                if (metrics != null && metrics.Length >= 4)
+                float[] raw = _faceLandmarkReader.NormalizedMetrics;
+                if (raw != null && raw.Length >= 9)
                 {
-                    _lastMetrics = metrics;
+                    _sb.Append("\nMetrics (Raw EMA | Relative to Baseline):\n");
+                    AppendMetric("Mouth Open", raw[0], _faceLandmarkReader.GetRelativeMetric(0));
+                    AppendMetric("Smile     ", raw[4], _faceLandmarkReader.GetRelativeMetric(4));
+                    AppendMetric("Eye L     ", raw[1], _faceLandmarkReader.GetRelativeMetric(1));
+                    AppendMetric("Eye R     ", raw[2], _faceLandmarkReader.GetRelativeMetric(2));
+                    AppendMetric("Brow Raise", raw[3], _faceLandmarkReader.GetRelativeMetric(3));
+                    AppendMetric("Furrow    ", raw[5], _faceLandmarkReader.GetRelativeMetric(5));
+                    AppendMetric("Frown (n) ", raw[6], _faceLandmarkReader.GetRelativeMetric(6));
+                    AppendMetric("Press     ", raw[7], _faceLandmarkReader.GetRelativeMetric(7));
+                    AppendMetric("Pucker (O)", raw[8], _faceLandmarkReader.GetRelativeMetric(8));
 
-                    displayText += "\n";
-                    displayText += "Metrics:\n";
-                    displayText += $"  Mouth Openness:  {metrics[0]:F3}\n";
-                    displayText += $"  Left Eye Open:   {metrics[1]:F3}\n";
-                    displayText += $"  Right Eye Open:  {metrics[2]:F3}\n";
-                    displayText += $"  Brow Raise:      {metrics[3]:F3}\n";
-
-                    // Show thresholds
-                    displayText += "\n";
-                    displayText += "Thresholds:\n";
-                    displayText += $"  Happy:      mouth > 0.08 && brow < 0.1\n";
-                    displayText += $"  Surprised:  mouth > 0.12 && eyes > 0.35 && brow > 0.15\n";
-                    displayText += $"  Angry:      mouth < 0.04 && brow < 0.05 && eyes < 0.25\n";
+                    _sb.Append("\nConfidence Scores (EMA Race):\n");
+                    AppendScore("Neutral  ", _emotionClassifier.GetConfidence(EmotionLabel.Neutral));
+                    AppendScore("Happy    ", _emotionClassifier.GetConfidence(EmotionLabel.Happy));
+                    AppendScore("Surprised", _emotionClassifier.GetConfidence(EmotionLabel.Surprised));
+                    AppendScore("Angry    ", _emotionClassifier.GetConfidence(EmotionLabel.Angry));
                 }
             }
 
-            // History
             if (_showHistory)
             {
-                displayText += "\n";
-                displayText += "History (last 10):\n";
+                _sb.Append("\nHistory (last 10):\n");
                 for (int i = 0; i < _historySize; i++)
                 {
                     if (!string.IsNullOrEmpty(_emotionHistory[i]))
                     {
-                        displayText += $"  {_emotionHistory[i]} ";
-                        if ((i + 1) % 5 == 0) displayText += "\n";
+                        _sb.Append("  ").Append(_emotionHistory[i]);
+                        if ((i + 1) % 5 == 0) _sb.Append('\n');
                     }
                 }
             }
 
-            // Instructions
-            displayText += "\n";
-            displayText += "Controls:\n";
-            displayText += "  Toggle: Button / E Key\n";
-            displayText += "  Reset: Button / R Key\n";
-            displayText += "  Exit: Button / ESC Key\n";
+            _sb.Append("\nControls:\n")
+               .Append("  Toggle: Button / E Key\n")
+               .Append("  Reset: Button / R Key\n")
+               .Append("  Exit: Button / ESC Key\n");
 
-            _debugText.text = displayText;
+            _debugText.text = _sb.ToString();
+        }
 
-            // Update emotion label (big centered text)
-            if (_emotionLabelText != null)
-            {
-                _emotionLabelText.text = _currentEmotion.ToString().ToUpper();
-                _emotionLabelText.color = GetEmotionColor(_currentEmotion);
-            }
+        private void AppendMetric(string name, float raw, float rel)
+        {
+            _sb.Append("  ").Append(name).Append(": ")
+               .Append(raw.ToString("F3")).Append(" | ")
+               .Append(rel.ToString("F3")).Append('\n');
+        }
+
+        private void AppendScore(string name, float score)
+        {
+            _sb.Append("  ").Append(name).Append(": ")
+               .Append(score.ToString("F3")).Append('\n');
         }
 
         private string GetEmotionColorTag(EmotionLabel emotion)
         {
             return emotion switch
             {
-                EmotionLabel.Happy => "\n<color=#27C464>✓ HAPPY (Green)</color>",
+                EmotionLabel.Happy     => "\n<color=#27C464>✓ HAPPY (Green)</color>",
                 EmotionLabel.Surprised => "\n<color=#0096C8>✓ SURPRISED (Blue)</color>",
-                EmotionLabel.Angry => "\n<color=#E24B4A>✓ ANGRY (Red)</color>",
-                _ => "\n<color=#808080>○ NEUTRAL (Gray)</color>"
-            };
-        }
-
-        private Color GetEmotionColor(EmotionLabel emotion)
-        {
-            return emotion switch
-            {
-                EmotionLabel.Happy => _colorHappy,
-                EmotionLabel.Surprised => _colorSurprised,
-                EmotionLabel.Angry => _colorAngry,
-                _ => _colorNeutral
+                EmotionLabel.Angry     => "\n<color=#E24B4A>✓ ANGRY (Red)</color>",
+                _                      => "\n<color=#808080>○ NEUTRAL (Gray)</color>"
             };
         }
 
         private void OnDestroy()
         {
             if (_emotionClassifier != null)
-            {
                 _emotionClassifier.OnEmotionChanged -= OnEmotionChanged;
-            }
         }
     }
 }

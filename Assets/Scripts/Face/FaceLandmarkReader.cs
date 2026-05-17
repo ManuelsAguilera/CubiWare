@@ -26,9 +26,11 @@ namespace ARcadeRush.Face
     [DefaultExecutionOrder(-10)]
     public class FaceLandmarkReader : MonoBehaviour
     {
-        public float[] NormalizedMetrics { get; private set; } = new float[6];
+        public float[] NormalizedMetrics { get; private set; } = new float[9];
 
-        
+        /// <summary>True only during the frame when fresh face data was processed. Use to reject stale metrics in loggers/tools.</summary>
+        public bool HasFreshData { get; private set; } = false;
+
         /// <summary>Head-pose confidence [0..1]. Low = face turned sideways, metrics unreliable.</summary>
         public float HeadConfidence { get; private set; } = 1f;
  
@@ -36,7 +38,7 @@ namespace ARcadeRush.Face
         [Header("EMA Smoothing (0 = no smoothing, 1 = freeze)")]
         [Range(0f, 0.99f)]
         [Tooltip("Higher = smoother but slower to react. 0.5–0.7 is a good starting range.")]
-        [SerializeField] private float _emaAlpha = 0.40f;
+        [SerializeField] private float _emaAlpha = 0.50f;
  
         [Header("Calibration")]
         [Tooltip("Seconds to auto-calibrate the neutral baseline after the component starts.")]
@@ -45,11 +47,11 @@ namespace ARcadeRush.Face
         [Header("Hybrid blend weights [0=pure landmark, 1=pure blendshape]")]
         [Range(0f, 1f)]
         [Tooltip("How much to trust blendshapes vs landmark geometry per metric.")]
-        [SerializeField] private float _blendshapeWeight = 0.75f;
+        [SerializeField] private float _blendshapeWeight = 0.70f;
  
         // ── Private ───────────────────────────────────────────────────────────────
         private const string LogServiceName = "FaceLandmarkReader";
-        private float[] _rawMetrics      = new float[6];
+        private float[] _rawMetrics      = new float[9];
         private float[] _neutralBaseline = null;
         private float   _calibrationTimer = 0f;
         private bool    _calibrated = false;
@@ -68,6 +70,11 @@ namespace ARcadeRush.Face
         private float _bs_browDownR      = 0f;
         private float _bs_smileL         = 0f;
         private float _bs_smileR         = 0f;
+        private float _bs_frownL         = 0f;
+        private float _bs_frownR         = 0f;
+        private float _bs_pressL         = 0f;
+        private float _bs_pressR         = 0f;
+        private float _bs_pucker         = 0f;
         private float _bs_cheekSquintL   = 0f;
         private float _bs_cheekSquintR   = 0f;
         private float _bs_noseSneerL     = 0f;
@@ -98,7 +105,7 @@ namespace ARcadeRush.Face
                 if (_neutralBaseline == null)
                     _neutralBaseline = (float[])_rawMetrics.Clone();
                 else
-                    for (int i = 0; i < 6; i++)
+                    for (int i = 0; i < 9; i++)
                         _neutralBaseline[i] += (_rawMetrics[i] - _neutralBaseline[i]) * 0.05f; // More gradual averaging for stability
  
                 if (_calibrationTimer >= _calibrationDuration)
@@ -112,8 +119,14 @@ namespace ARcadeRush.Face
             }
  
             // ── EMA smoothing ─────────────────────────────────────────────────
-            for (int i = 0; i < 6; i++)
+            HasFreshData = true;
+            for (int i = 0; i < 9; i++)
                 NormalizedMetrics[i] = Mathf.Lerp(_rawMetrics[i], NormalizedMetrics[i], _emaAlpha);
+        }
+
+        private void LateUpdate()
+        {
+            HasFreshData = false;
         }
  
         #endregion
@@ -201,6 +214,15 @@ namespace ARcadeRush.Face
                 : 0f;
             _rawMetrics[5] = w * bs_furrow + w2 * lm_furrow;
  
+            // [6] True Frown (n-shape)
+            _rawMetrics[6] = _hasBlendshapes ? (_bs_frownL + _bs_frownR) * 0.5f : 0f;
+
+            // [7] Mouth Press (tight lips)
+            _rawMetrics[7] = _hasBlendshapes ? (_bs_pressL + _bs_pressR) * 0.5f : 0f;
+
+            // [8] Pucker (O-face)
+            _rawMetrics[8] = _hasBlendshapes ? _bs_pucker : 0f;
+
             // ── 4. Head-pose confidence (pure landmark — blendshapes don't encode yaw) ──
             float noseCentreX   = (lm[234].x + lm[454].x) * 0.5f;
             float noseTipOffset = Mathf.Abs(lm[1].x - noseCentreX) / (faceWidth * 0.5f);
@@ -219,6 +241,9 @@ namespace ARcadeRush.Face
             _bs_eyeBlinkL = _bs_eyeBlinkR = 0f;
             _bs_browInnerUp = _bs_browDownL = _bs_browDownR = 0f;
             _bs_smileL = _bs_smileR = 0f;
+            _bs_frownL = _bs_frownR = 0f;
+            _bs_pressL = _bs_pressR = 0f;
+            _bs_pucker = 0f;
             _bs_cheekSquintL = _bs_cheekSquintR = 0f;
             _bs_noseSneerL = _bs_noseSneerR = 0f;
  
@@ -236,6 +261,11 @@ namespace ARcadeRush.Face
                     case "browDownRight":     _bs_browDownR     = c.score; break;
                     case "mouthSmileLeft":    _bs_smileL        = c.score; break;
                     case "mouthSmileRight":   _bs_smileR        = c.score; break;
+                    case "mouthFrownLeft":    _bs_frownL        = c.score; break;
+                    case "mouthFrownRight":   _bs_frownR        = c.score; break;
+                    case "mouthPressLeft":    _bs_pressL        = c.score; break;
+                    case "mouthPressRight":   _bs_pressR        = c.score; break;
+                    case "mouthPucker":       _bs_pucker        = c.score; break;
                     case "cheekSquintLeft":   _bs_cheekSquintL  = c.score; break;
                     case "cheekSquintRight":  _bs_cheekSquintR  = c.score; break;
                     case "noseSneerLeft":     _bs_noseSneerL    = c.score; break;
