@@ -120,7 +120,7 @@ namespace ARcadeRush.Minigames.EmotionTest
             if (_showDetailedMetrics && _faceLandmarkReader != null && _emotionClassifier != null)
             {
                 float[] raw = _faceLandmarkReader.NormalizedMetrics;
-                if (raw != null && raw.Length >= 9)
+                if (raw != null && raw.Length >= 10)
                 {
                     _sb.Append("\nMetrics (Raw EMA | Relative to Baseline):\n");
                     AppendMetric("Mouth Open", raw[0], _faceLandmarkReader.GetRelativeMetric(0));
@@ -131,7 +131,9 @@ namespace ARcadeRush.Minigames.EmotionTest
                     AppendMetric("Furrow    ", raw[5], _faceLandmarkReader.GetRelativeMetric(5));
                     AppendMetric("Frown (n) ", raw[6], _faceLandmarkReader.GetRelativeMetric(6));
                     AppendMetric("Press     ", raw[7], _faceLandmarkReader.GetRelativeMetric(7));
-                    AppendMetric("Pucker (O)", raw[8], _faceLandmarkReader.GetRelativeMetric(8));
+                    AppendMetric("Funnel (O)", raw[8], _faceLandmarkReader.GetRelativeMetric(8));
+                    AppendMetric("Squint    ", raw[9], _faceLandmarkReader.GetRelativeMetric(9));
+                    AppendMetric("Blink avg ", _faceLandmarkReader.BlinkAverage, 0f);
 
                     _sb.Append("\nConfidence Scores (EMA Race):\n");
                     AppendScore("Neutral  ", _emotionClassifier.GetConfidence(EmotionLabel.Neutral));
