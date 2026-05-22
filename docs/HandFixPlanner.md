@@ -92,4 +92,91 @@ La asignación del eje `Z` (profundidad desde la cámara) varía significativame
 4. El `GunController` calcula dinámicamente su rotación local para alinear su vector frontal (`forward`) con este `_aimTargetPoint` a través del método `LookAt()`.
 
 ---
+
+## 5. Detalle Técnico de Miembros (Atributos y Métodos)
+
+### A. `ShooterHandController.cs` (Orquestador de Input)
+*   **Atributos Clave:**
+    *   `_gunController` (GunController): Referencia al actuador del arma.
+    *   `_aimTargetPoint` (Vector3): Punto final en el mundo 3D donde impacta la mirada.
+    *   `AimDirection` / `AimOrigin` (Vector3): Vectores que definen la geometría del rayo de apuntado.
+    *   `IsAiming` (bool): Indica si el sistema ha validado la presencia de una mano para apuntar.
+*   **Métodos Clave:**
+    *   `UpdateAimRay()`: **Proceso Crítico**. Convierte el Landmark 8 (índice) de espacio normalizado a coordenadas de pantalla y dispara un `Raycast` para hallar el `_aimTargetPoint`.
+    *   `HandleHandDetected()`: Suscribe los datos de entrada y activa la bandera de detección.
+
+### B. `Hand3DProjector.cs` (Cálculo de Profundidad)
+*   **Atributos Clave:**
+    *   `_nearScale` / `_farScale` (float): Valores de referencia de tamaño de mano en píxeles.
+    *   `_nearZ` / `_farZ` (float): Unidades de profundidad correspondientes en el espacio de Unity.
+    *   `LandmarkWorldPositions` (Vector3[]): Almacén de los 21 puntos ya proyectados en el mundo.
+*   **Métodos Clave:**
+    *   `GetCalibratedDepth(float handScale)`: Implementa la lógica de interpolación lineal para adivinar qué tan lejos está la mano del usuario.
+    *   `HandleHandDetected()`: Calcula el tamaño relativo de la mano (palma + dedo medio) antes de proyectar.
+
+### C. `HandModel.cs` (Visualización)
+*   **Atributos Clave:**
+    *   `_joints` (Transform[]): Referencias a las esferas físicas de las articulaciones.
+    *   `_bones` (LineRenderer[]): Referencias a los componentes que dibujan los huesos.
+    *   `_smoothSpeed` (float): Factor de interpolación para evitar el parpadeo visual.
+*   **Métodos Clave:**
+    *   `Update()`: Mapea los puntos de pantalla a mundo usando una profundidad constante (`10f`) para asegurar visibilidad constante.
+
+### D. `HandPositionTracker.cs` (Filtro de Datos)
+*   **Atributos Clave:**
+    *   `IsMirrored` (bool): Estado del eje X (invertido o normal).
+    *   `_positionBuffer` (Queue<Vector2>): Almacén temporal para el cálculo de la media móvil.
+*   **Métodos Clave:**
+    *   `HandleHandDetected()`: Realiza el promedio aritmético de 5 puntos de la palma para estabilizar el centro de la mano.
+
+### E. `GunController.cs` (Actuador)
+*   **Atributos Clave:**
+    *   `_muzzleTransform` (Transform): El origen físico de la bala (punta del cañón).
+    *   `_hitLayerMask` (LayerMask): Define qué objetos son considerados "objetivos".
+*   **Métodos Clave:**
+    *   `LookAt(Vector3 target)`: Orienta el modelo 3D del arma hacia el punto de impacto calculado por el controlador de mano.
+    *   `PerformHitscan()`: Realiza el disparo físico final desde el cañón hacia adelante.
+
+---
+
+## 6. Diagrama de Flujo de Datos (Secuencia de Actividades)
+
+A continuación se describe el viaje de un dato desde el sensor hasta el impacto en el juego:
+
+```text
+[SENSOR WEBCAM]
+      |
+      V
+[MEDIAPIPE CONTROLLER] 
+(Genera 21 Landmarks Normalizados 0.0 - 1.0)
+      |
+      +----------------------------+---------------------------+
+      |                            |                           |
+      V                            V                           V
+[HAND POSITION TRACKER]      [HAND 3D PROJECTOR]         [HAND MODEL]
+1. Promedia Palma            1. Calcula Escala           1. Z Fijo (10f)
+2. Aplica Espejo (X)         2. Interpola Profundidad    2. Suaviza (Lerp)
+3. Suaviza (Buffer)          3. Proyecta 21 Puntos       3. Dibuja Esferas/Lineas
+      |                            |                           |
+      |                            V                           |
+      |                 (Dato: LandmarkWorldPositions)         |
+      |                            |                           |
+      +----------------------------+---------------------------+
+                                   |
+                                   V
+                      [SHOOTER HAND CONTROLLER]
+                      1. Toma Landmark 8 (Punto Índice)
+                      2. ScreenPointToRay(Z=10f)
+                      3. Detecta Impacto Visual (Raycast Cámara)
+                      4. Define: _aimTargetPoint
+                                   |
+                                   V
+                            [GUN CONTROLLER]
+                            1. LookAt(_aimTargetPoint)
+                            2. Gesto Fist -> Shoot()
+                            3. Raycast Físico (Desde el CAÑÓN)
+                            4. Resultado: TARGET_HIT / MISS
+```
+
+---
 *Fin del Documento. Consulte esta arquitectura al investigar discrepancias en la proyección.*

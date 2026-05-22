@@ -1956,6 +1956,8 @@ GameObject:
   - component: {fileID: 613259074}
   - component: {fileID: 613259073}
   - component: {fileID: 613259072}
+  - component: {fileID: 613259077}
+  - component: {fileID: 613259076}
   m_Layer: 0
   m_Name: HandGestureDetection
   m_TagString: Untagged
@@ -1989,9 +1991,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _enabledByDefault: 1
   _enabledGestures:
-  - OpenHand
   - ClosedFist
-  - Point
   _currentDetectedGesture: None
   _currentFingerStates:
   - 
@@ -2031,6 +2031,51 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &613259076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 613259071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6211d0e11535b0747a135619a75c4c56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _nearScale: 0.4
+  _midScale: 0.25
+  _farScale: 0.15
+  _nearZ: 2
+  _midZ: 10
+  _farZ: 20
+--- !u!114 &613259077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 613259071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46af614106ac68e4cbea225f88e21b06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _gunController: {fileID: 231449183}
+  _maxRayDistance: 50
+  _showDebugRay: 1
+  _fireCooldown: 0.3
+  _projector: {fileID: 613259076}
+  _gunLocalOffset: {x: 0, y: -0.3, z: 0.6}
+  _smoothingFrames: 5
+  _cameraPanRange: 5
+  _cameraFollowSpeed: 5
+  _minCameraY: 0.55
+  _maxCameraY: 10
+  _edgeScrollThreshold: 0.7
+  _edgeScrollSpeed: 10
+  _maxExtendX: 8
+  _maxExtendY: 8
 --- !u!1 &629110444
 GameObject:
   m_ObjectHideFlags: 0
@@ -3251,7 +3296,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 08f1ac266225d044a87d4b97330d3a3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _handController: {fileID: 0}
+  _handController: {fileID: 613259077}
   _gunController: {fileID: 231449183}
   _targetManager: {fileID: 604545334}
   _hudController: {fileID: 1527330880}
@@ -3289,7 +3334,7 @@ MonoBehaviour:
   - 0.5
   - 0.2
   _waveTransitionDelay: 1
-  _debugSkipStartMenu: 0
+  _debugSkipStartMenu: 1
   _debugScoreIncrement: 15
   _debugAddScoreKey: 293
   _score: 0
@@ -5376,8 +5421,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1737676881}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.16527489, y: 0.971883, z: -0.030760288}
+  m_LocalRotation: {x: 1.0094967e-19, y: 0.00000018725308, z: 0, w: 1}
+  m_LocalPosition: {x: 0.20032576, y: 0.74508107, z: -0.030760288}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -5961,6 +6006,10 @@ PrefabInstance:
       propertyPath: m_PlayOnAwake
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8285703243135948298, guid: b8440b2607474a94abd29d414de48a46, type: 3}
+      propertyPath: _useDebugInput
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -6015,31 +6064,31 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.8
+      value: 0.45
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.7070799
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0.006170608
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0.7070799
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.006170608
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 0.2003258
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0.8
+      value: 0.45
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -6047,11 +6096,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
+      value: -90
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8750518125039999100, guid: b8440b2607474a94abd29d414de48a46, type: 3}
       propertyPath: m_ConstrainProportionsScale

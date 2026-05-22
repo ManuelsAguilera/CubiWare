@@ -149,10 +149,7 @@ namespace ARcadeRush.Hand
         {
             if (h.PinchThreshold < 1.0f && pinchDist > h.PinchThreshold) return false;
 
-            if (h.CustomRule == CustomHeuristicRule.None)
-            {
-                if (!CheckFinger(h.Thumb, states[0])) return false;
-            }
+            if (!CheckFinger(h.Thumb, states[0])) return false;
 
             // EitherUp Logic: Index OR Middle must be UP
             if (h.Index == FingerStateRequirement.EitherUp || h.Middle == FingerStateRequirement.EitherUp)
