@@ -10,8 +10,15 @@ namespace ARcadeRush.UI
 {
     public class MainMenuController : MonoBehaviour
     {
-        [Header("Menu Buttons")]
-        
+        [Header("Panel Navigation")]
+        [SerializeField] private GameObject _mainMenuPanel;
+        [SerializeField] private GameObject _gameSelectorPanel;
+
+        [Header("Navigation Buttons")]
+        [SerializeField] private Button _jugarBtn;
+        [SerializeField] private Button _backBtn;
+
+        [Header("Game Selector Buttons")]
         [SerializeField] private Button _startTestingSceneBtn;
         [SerializeField] private Button _startShooterBtn;
         [SerializeField] private Button _startFruitNinjaBtn;
@@ -73,11 +80,29 @@ namespace ARcadeRush.UI
                 _startTest2Btn.onClick.AddListener(() => LoadScene(4));
             }
 
+            if (_jugarBtn != null)
+                _jugarBtn.onClick.AddListener(ShowGameSelector);
+
+            if (_backBtn != null)
+                _backBtn.onClick.AddListener(GoBack);
+
             // Display last score from GameManager if available
             if (_lastScoreText != null && GameManager.Instance != null)
             {
                 _lastScoreText.text = _scorePrefix + GameManager.Instance.LastScore;
             }
+        }
+
+        private void ShowGameSelector()
+        {
+            _mainMenuPanel?.SetActive(false);
+            _gameSelectorPanel?.SetActive(true);
+        }
+
+        private void GoBack()
+        {
+            _gameSelectorPanel?.SetActive(false);
+            _mainMenuPanel?.SetActive(true);
         }
 
         /// <summary>
