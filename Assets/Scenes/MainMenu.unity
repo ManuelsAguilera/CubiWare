@@ -2397,6 +2397,7 @@ GameObject:
   - component: {fileID: 7000021}
   - component: {fileID: 7000022}
   - component: {fileID: 7000024}
+  - component: {fileID: 7000029}
   m_Layer: 5
   m_Name: BtnDirector
   m_TagString: Untagged
@@ -2613,6 +2614,26 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &7000029
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000030
 GameObject:
   m_ObjectHideFlags: 0
@@ -2624,6 +2645,7 @@ GameObject:
   - component: {fileID: 7000031}
   - component: {fileID: 7000032}
   - component: {fileID: 7000034}
+  - component: {fileID: 7000039}
   m_Layer: 5
   m_Name: BtnFruitNinja
   m_TagString: Untagged
@@ -2840,6 +2862,26 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &7000039
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000040
 GameObject:
   m_ObjectHideFlags: 0
@@ -2851,6 +2893,7 @@ GameObject:
   - component: {fileID: 7000041}
   - component: {fileID: 7000042}
   - component: {fileID: 7000044}
+  - component: {fileID: 7000049}
   m_Layer: 5
   m_Name: BtnShooter
   m_TagString: Untagged
@@ -3067,6 +3110,26 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &7000049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000050
 GameObject:
   m_ObjectHideFlags: 0
@@ -3078,6 +3141,7 @@ GameObject:
   - component: {fileID: 7000051}
   - component: {fileID: 7000052}
   - component: {fileID: 7000054}
+  - component: {fileID: 7000059}
   m_Layer: 5
   m_Name: BtnSimon
   m_TagString: Untagged
@@ -3294,6 +3358,26 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &7000059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000060
 GameObject:
   m_ObjectHideFlags: 0
