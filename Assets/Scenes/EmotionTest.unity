@@ -400,21 +400,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _isEnabled: 0
   _holdSeconds: 0.25
-  _minHeadConfidence: 0.6
+  _minHeadConfidence: 0.5
   _confidenceEma: 0.3
   _happySmileWeight: 2.25
   _happyMouthWeight: 1.5
-  _happyMouthPenalty: 1
+  _happyMouthPenalty: 1.3
   _surpMouthWeight: 2
   _surpEyeWeight: 1.5
   _surpBrowRaiseWeight: 3
   _surpFunnelWeight: 2
-  _surpBlinkPenalty: 3
-  _angryFurrowWeight: 1
+  _surpBlinkPenalty: 2.5
+  _angryFurrowWeight: 1.25
   _angryBrowLowWeight: 2.75
   _angrySquintWeight: 3
   _angryFrownWeight: 1.5
-  _angryPressWeight: 1
+  _angryPressWeight: 1.25
   _neutralBaseScore: 0.15
   _hysteresis: 0
 --- !u!114 &259732453
@@ -429,7 +429,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f4ff3637851c04459a39b48d8bededd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _emaAlpha: 0.15
+  _emaAlpha: 0.2
   _calibrationDuration: 2
   _blendshapeWeight: 1
 --- !u!114 &259732454

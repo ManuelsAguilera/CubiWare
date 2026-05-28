@@ -2284,9 +2284,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _cameraIndex: 0
   _outputImage: {fileID: 380519305}
-  _requestedWidth: 640
-  _requestedHeight: 480
-  _requestedFPS: 30
+  _requestedWidth: 0
+  _requestedHeight: 0
+  _requestedFPS: 0
 --- !u!114 &1956664343
 MonoBehaviour:
   m_ObjectHideFlags: 0

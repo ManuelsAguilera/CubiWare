@@ -65,10 +65,12 @@ namespace ARcadeRush.Face
         [Header("Angry — weights")]
         [SerializeField] private float _angryFurrowWeight  = 2.0f;
         [SerializeField] private float _angryBrowLowWeight = 4.0f;
-        [Tooltip("eyeSquint (eye narrowing) — primary anatomical Angry signal.")]
+        [Tooltip("eyeSquint (eye narrowing) — angry signal, but also fires during Duchenne smiles.")]
         [SerializeField] private float _angrySquintWeight  = 3.0f;
         [SerializeField] private float _angryFrownWeight   = 2.0f;
         [SerializeField] private float _angryPressWeight   = 5.0f;
+        [Tooltip("Smile penalty — subtracts smile * this value; can't be angry while genuinely smiling.")]
+        [SerializeField] private float _angrySmilePenalty  = 4.0f;
  
         // ── Inspector — Neutral baseline offset ──────────────────────────────────
         [Header("Neutral — base confidence (opponent to all emotions)")]
@@ -145,14 +147,15 @@ namespace ARcadeRush.Face
                 - _reader.BlinkAverage * _surpBlinkPenalty);
 
             // Angry: brow furrow + low brow + eye squint + true frown + mouth press.
-            // EyeR (eyeWide) removed — widening eyes is not anatomically linked to anger.
-            // Squint (eyeSquintLeft/Right) is the correct anatomical anger signal.
+            // Smile penalty added: Duchenne smiles activate eyeSquint (same orbicularis oculi muscle),
+            // so without this penalty a genuine smile would score highly for Angry.
             float rawAngry = Mathf.Max(0f,
                 Mathf.Max(0f, furrow - 0.05f) * _angryFurrowWeight
                 + Mathf.Max(0f, -browRaise)    * _angryBrowLowWeight
                 + squint     * _angrySquintWeight
                 + trueFrown  * _angryFrownWeight
-                + mouthPress * _angryPressWeight);
+                + mouthPress * _angryPressWeight
+                - smile      * _angrySmilePenalty);
  
             // ── EMA smoothing of confidence scores ─────────────────────────────
             _confidence[(int)EmotionLabel.Neutral]   = Mathf.Lerp(rawNeutral, _confidence[(int)EmotionLabel.Neutral],   _confidenceEma);

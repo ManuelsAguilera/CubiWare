@@ -37,7 +37,7 @@ namespace ARcadeRush.Core
                 return;
             }
             Instance = this;
-            DontDestroyOnLoad(transform.root.gameObject);
+            
             try
             {
                 _provider = new CameraFeedProvider(_requestedWidth, _requestedHeight);
@@ -72,14 +72,15 @@ namespace ARcadeRush.Core
         {
             _logger.LogInfo("CameraFeedCtrl", $"StartCameraRoutine started on instance {GetInstanceID()}");
 
-#if UNITY_IOS || UNITY_WEBGL
+            #if UNITY_IOS || UNITY_WEBGL
             yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
             if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
             {
                 _logger.LogError("CameraFeedCtrl", "Camera permission denied by user!", ServiceErrorCode.CameraAccessDenied);
                 yield break;
             }
-#elif UNITY_ANDROID
+            #elif UNITY_ANDROID
+            
             if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
             {
                 UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
@@ -110,17 +111,19 @@ namespace ARcadeRush.Core
                     _logger.LogInfo("CameraFeedCtrl", $"Found camera [{i}]: {devices[i].name}");
                 }
 
-                if (devices.Length == 0)
+                if (devices.Length == 0) {yield break;}
+                if (_cameraIndex < 0 || _cameraIndex >= devices.Length) _cameraIndex = 0;
+
+                if (_requestedWidth > 0 && _requestedHeight > 0)
                 {
-                    _logger.LogError("CameraFeedCtrl", "No cameras found!", ServiceErrorCode.CameraInitFailed);
-                    yield break;
+                    _webCamTexture = new WebCamTexture(devices[_cameraIndex].name, _requestedWidth, _requestedHeight, _requestedFPS);
+                }
+                else
+                {
+                    _webCamTexture = new WebCamTexture(devices[_cameraIndex].name);
                 }
 
-                if (_cameraIndex < 0 || _cameraIndex >= devices.Length)
-                    _cameraIndex = 0;
-
-                _webCamTexture = new WebCamTexture(devices[_cameraIndex].name, _requestedWidth, _requestedHeight, _requestedFPS);
-                _logger.LogInfo("CameraFeedCtrl", $"WebCamTexture created for: {_webCamTexture.deviceName}");
+        _logger.LogInfo("CameraFeedCtrl", $"WebCamTexture created for: {_webCamTexture.deviceName}");
             }
 
             if (_outputImage != null)
@@ -162,6 +165,13 @@ namespace ARcadeRush.Core
                 _webCamTexture.Stop();
                 _logger.LogInfo("CameraFeedCtrl", "Camera stopped.");
             }
+            
+            if (_outputImage != null)
+            {
+                _outputImage.texture = null;
+                //_outputImage.enabled = false;
+            }
+
             _provider?.StopCamera();
         }
 
@@ -177,7 +187,12 @@ namespace ARcadeRush.Core
                 _webCamTexture = null;
             }
 
-            _webCamTexture = new WebCamTexture(deviceName, _requestedWidth, _requestedHeight, _requestedFPS);
+            // ← ONLY THIS CHANGES:
+            if (_requestedWidth > 0 && _requestedHeight > 0)
+                _webCamTexture = new WebCamTexture(deviceName, _requestedWidth, _requestedHeight, _requestedFPS);
+            else
+                _webCamTexture = new WebCamTexture(deviceName);
+
             _logger.LogInfo("CameraFeedCtrl", $"Switched to '{deviceName}' (not started yet)");
 
             if (wasPlaying)
@@ -204,6 +219,7 @@ namespace ARcadeRush.Core
             _outputImage = newOutput;
             if (_outputImage != null && _webCamTexture != null)
                 _outputImage.texture = _webCamTexture;
+                _outputImage.uvRect = new Rect(1, 0, -1, 1);
         }
 
         private void Update()

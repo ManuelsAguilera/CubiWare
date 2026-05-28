@@ -216,36 +216,249 @@ ScenarioController.OnCloseComplete   → OnEnd() → GameManager.EndGame() → L
 
 ```
 Director.unity
-├── Main Camera                   [Camera] depth=-1, excludes StageLayer
-├── Stage Camera                  [Camera] depth=0, renders StageLayer → StageRT (RenderTexture)
-├── MaskRoot                      [MaskController] Layer=StageLayer
-│   ├── HappyMask                 [MeshFilter, MeshRenderer] Layer=StageLayer
-│   ├── SurprisedMask             [MeshFilter, MeshRenderer] Layer=StageLayer
-│   └── AngryMask                 [MeshFilter, MeshRenderer] Layer=StageLayer
-├── Canvas                        [Canvas] Screen Space — Overlay
-│   ├── CameraDisplay             [RawImage] Texture=StageRT, first child (renders behind all UI)
-│   ├── Scenario                  [ScenarioController, Animator, Image]
-│   │   └── CurtainImage          [Image]
-│   ├── Audience                  [AudienceController, Animator]
-│   │   └── AudienceSprite        [Image]
-│   ├── ApprovalBar               [ApprovalBarController]
-│   │   ├── BarBackground         [Image]
-│   │   ├── FillBar               [Image, Type=Filled, Horizontal]
-│   │   └── FeedbackText          [TextMeshProUGUI]
-│   ├── Countdown                 [CountdownController]
-│   │   ├── FillBar               [Image, Type=Filled, Horizontal]
-│   │   └── TimeText              [TextMeshProUGUI]
-│   ├── Script                    [ScriptController]
-│   │   ├── CurrentEmotionText    [TextMeshProUGUI]
-│   │   ├── NextEmotionText       [TextMeshProUGUI]
-│   │   ├── ProgressText          [TextMeshProUGUI]
-│   │   └── EmotionIcon           [Image]
-│   └── CameraElement             [CameraController]
+├── Main Camera
+├── Stage Camera
+├── MaskRoot
+│   ├── HappyMask
+│   ├── SurprisedMask
+│   └── AngryMask
+├── Canvas
+│   ├── CameraDisplay
+│   ├── Scenario
+│   │   └── CurtainImage
+│   ├── Audience
+│   │   └── AudienceSprite
+│   ├── ApprovalBar
+│   │   ├── BarBackground
+│   │   ├── FillBar
+│   │   └── FeedbackText
+│   ├── Countdown
+│   │   ├── FillBar
+│   │   └── TimeText
+│   ├── Script
+│   │   ├── CurrentEmotionText
+│   │   ├── NextEmotionText
+│   │   ├── ProgressText
+│   │   └── EmotionIcon
+│   ├── ResultsPanel *(create manually)*
+│   │   ├── HeadlineText
+│   │   ├── EvaluationText
+│   │   ├── ScoreText
+│   │   └── ElementsPassedText
+│   └── CameraElement
 ├── EventSystem
-└── SceneDirectorGame             [SceneDirectorGame]
+└── SceneDirectorGame
 ```
 
-**RenderTexture:** Create `Assets/RenderTextures/StageRT` at 640×480. Assign to `Stage Camera → Target Texture` and to `CameraDisplay → Raw Image → Texture`. This is what makes the 3D mask visible on top of the webcam feed inside the UI canvas.
+---
+
+### Main Camera
+**Components:** Camera (depth=−1, Culling Mask = Everything except StageLayer)
+
+**What it does:** Renders the UI canvas and all non-stage world elements. Excludes the StageLayer so it never sees the 3D mask meshes directly — those are composited through the RenderTexture pipeline instead. This camera is the player's primary view of the theater UI.
+
+---
+
+### Stage Camera
+**Components:** Camera (depth=0, Culling Mask = StageLayer only, Target Texture = StageRT)
+
+**What it does:** Dedicated camera that renders only the 3D theatrical mask meshes (HappyMask, SurprisedMask, AngryMask) into a RenderTexture (`StageRT` at 640×480). The result is displayed on the `CameraDisplay` RawImage, which composites the masks visually on top of the webcam feed inside the canvas. Without this camera, the 3D masks would be invisible behind the Screen Space Overlay canvas.
+
+---
+
+### MaskRoot
+**Components:** Transform, MaskController
+
+**What it does:** The root transform for all 3D theatrical mask meshes. `MaskController` updates this object's world position every frame by converting the player's nose-tip position (read from `FaceLandmarkReader.FaceCenterNormalized`) through the Stage Camera's viewport-to-world transform. Its local scale is driven by `FaceLandmarkReader.FaceScale` so the mask grows and shrinks as the player moves closer or further from the camera. Only one child mask is active at a time.
+
+---
+
+### HappyMask / SurprisedMask / AngryMask *(children of MaskRoot)*
+**Components:** MeshFilter, MeshRenderer (Layer = StageLayer)
+
+**What it does:** Each is a 3D theatrical mask mesh for one emotion state. `MaskController.SetEmotion(EmotionLabel)` activates the matching child and deactivates the others. Only the active mesh is rendered by the Stage Camera into the RenderTexture. In testing mode, H/S/A/N keys trigger the swap; in live mode, `EmotionClassifier.OnEmotionChanged` drives it.
+
+---
+
+### Canvas
+**Components:** Canvas (Screen Space — Overlay), Canvas Scaler (1920×1080), Graphic Raycaster
+
+**What it does:** The root of all 2D UI in the Director scene. Renders in Screen Space Overlay so it always draws on top of everything. Child draw order (top to bottom in hierarchy = back to front on screen) determines what appears above what — `CameraDisplay` must be the first child so it renders behind all other UI panels.
+
+---
+
+### CameraDisplay *(first child of Canvas)*
+**Components:** RectTransform (stretch full screen), RawImage (Texture = StageRT)
+
+**What it does:** Full-screen background that displays the Stage Camera's RenderTexture output — the webcam feed with the 3D mask composited on top. Must be the first child of Canvas so it renders behind all other UI elements. `CameraController.BindFeed()` does NOT write to this object's texture directly; the Stage Camera handles that through StageRT.
+
+---
+
+### Scenario *(child of Canvas)*
+**Components:** RectTransform (stretch full screen), Animator, Image (curtain sprite), ScenarioController
+
+**What it does:** The theater curtain overlay. At the start of every round, `SceneDirectorGame.OnStart()` calls `ScenarioController.Open()`, which triggers the Animator to play the curtain-open animation. When the animation finishes, the Animation Event `OnOpenComplete_AnimEvent()` fires, which notifies `SceneDirectorGame` that the stage is ready and the sequence can begin. At round end, `ScenarioController.Close()` triggers the curtain-close animation; its completion event fires `OnEnd()` to return to the main menu.
+
+---
+
+### CurtainImage *(child of Scenario)*
+**Components:** RectTransform (stretch full screen), Image
+
+**What it does:** The actual curtain sprite. Animated by the Scenario Animator. Can use a sprite sheet or a single image manipulated by animation curves (slide, scale, fade). This is the visual the player sees opening and closing around the performance.
+
+---
+
+### Audience *(child of Canvas)*
+**Components:** RectTransform (bottom strip), Animator, AudienceController
+
+**What it does:** The virtual crowd that reacts to the player's performance in real time. Driven by three Animator states: **Idle** (audience waits), **SlightMove** (audience gets excited while the player holds the correct emotion — triggered from `SceneDirectorGame.Update()` via `ApprovalBarController.IsCorrect`), and **React** (big movement — applause if `IsPositive=true`, tomatoes if `IsPositive=false`). React fires on element pass/fail and auto-returns to Idle via the `OnReactComplete_AnimEvent` Animation Event.
+
+---
+
+### AudienceSprite *(child of Audience)*
+**Components:** RectTransform, Image
+
+**What it does:** The audience sprite or sprite sheet driven by the Audience Animator. The `IsPositive` Animator bool controls which reaction animation clip plays during the React state — allowing the same trigger to produce either applause or tomato-throwing depending on whether the player passed or failed the element.
+
+---
+
+### ApprovalBar *(child of Canvas)*
+**Components:** RectTransform, ApprovalBarController
+
+**What it does:** The core per-emotion scoring mechanic. When a new script element begins, `SceneDirectorGame` calls `ApprovalBarController.Activate(requiredEmotion)` which resets the fill to 0 and starts the fill/drain loop. Every frame: if the detected emotion matches the required emotion, the bar fills at `_fillRate`/sec; otherwise it drains at `_drainRate`/sec. When the fill reaches 1.0, `OnBarFilled` fires and the element is passed. When it reaches 0.0, `OnBarEmptied` fires and the element fails. Both events are wired in `SceneDirectorGame` to stop the countdown, deactivate the bar, and drive the audience reaction.
+
+---
+
+### BarBackground *(child of ApprovalBar)*
+**Components:** RectTransform (stretch), Image (dark gray)
+
+**What it does:** Static dark background behind the fill bar. Provides visual contrast so the fill bar's color changes are readable against any background.
+
+---
+
+### FillBar *(child of ApprovalBar)*
+**Components:** RectTransform (stretch), Image (Type=Filled, Fill Method=Horizontal, Fill Origin=Left)
+
+**What it does:** The fill bar image whose `fillAmount` [0..1] is driven each frame by `ApprovalBarController`. Color interpolates between `_colorDraining` (red) and `_colorFilling` (green) proportionally to the current fill level. The player reads this bar to know how well they are performing on the current emotion element.
+
+---
+
+### FeedbackText *(child of ApprovalBar)*
+**Components:** RectTransform, TextMeshProUGUI
+
+**What it does:** Overlay text that shows `"CORRECT"` (green) while the player is holding the required emotion, or `"SHOW: {required}"` (white/red) when they are not. Color shifts to red when the fill is below `_warningThreshold`. Gives the player a text confirmation of what emotion they need to perform.
+
+---
+
+### Countdown *(child of Canvas)*
+**Components:** RectTransform, CountdownController
+
+**What it does:** The per-emotion timer. When a new element starts, `SceneDirectorGame` calls `CountdownController.StartCountdown(element.TimeLimit)`. The timer counts down in real time and refreshes both `TimeText` and its own `FillBar` every frame. When it reaches zero, `OnCountdownExpired` fires, which causes `SceneDirectorGame` to deactivate the approval bar and call `ScriptController.FailCurrentElement()`. The countdown is stopped (without firing) by `CountdownController.Stop()` when the player succeeds.
+
+---
+
+### FillBar *(child of Countdown)*
+**Components:** RectTransform, Image (Type=Filled, Horizontal)
+
+**What it does:** Visual drain bar that shows remaining time. Starts full (fillAmount=1) and drains toward 0 as the countdown runs. Color transitions from green to red as it falls below `_warningThreshold` (default 35% remaining).
+
+---
+
+### TimeText *(child of Countdown)*
+**Components:** RectTransform, TextMeshProUGUI
+
+**What it does:** Displays the ceiling of `_remaining` as an integer (e.g. `"5"`, `"4"`, `"3"`). Color matches the bar — switches to `_colorWarning` (red) below the warning threshold. Large font, center-aligned, intended to be the player's primary time awareness cue.
+
+---
+
+### Script *(child of Canvas)*
+**Components:** RectTransform, ScriptController
+
+**What it does:** The "guión" panel — shows the player what emotion they must perform. `ScriptController` manages the entire sequence state machine: it loads the 3–6 element sequence (hardcoded in testing mode, LLM-generated in production), fires `OnElementStarted` when a new element is active (which starts the countdown and activates the approval bar), and fires `OnSequenceComplete` when all elements are passed. `RefreshUI()` updates all four child labels every time the active element changes.
+
+---
+
+### CurrentEmotionText *(child of Script)*
+**Components:** RectTransform, TextMeshProUGUI (large, bold, center)
+
+**What it does:** Shows the required emotion in large uppercase text (e.g. `"HAPPY"`, `"ANGRY"`). This is the primary instruction the player reads to know what to perform. Also temporarily shows `"Get Ready!"` during the inter-element delay (code-side TODO).
+
+---
+
+### NextEmotionText *(child of Script)*
+**Components:** RectTransform, TextMeshProUGUI (small, gray, center)
+
+**What it does:** Shows a preview of the upcoming emotion (e.g. `"Next: SURPRISED"`). Gives the player time to mentally prepare for the next element while the current one is still active. Shows `"Next: —"` on the final element.
+
+---
+
+### ProgressText *(child of Script)*
+**Components:** RectTransform, TextMeshProUGUI (small, right-aligned)
+
+**What it does:** Shows how far through the sequence the player is (e.g. `"2 / 4"`). Clamps at total count when the sequence is complete. Helps the player understand how many elements remain.
+
+---
+
+### EmotionIcon *(child of Script)*
+**Components:** RectTransform (~80×80px), Image
+
+**What it does:** A visual icon that swaps to the sprite corresponding to the current required emotion. `ScriptController._emotionSprites[]` is indexed by `(int)EmotionLabel`: [0]=Neutral, [1]=Happy, [2]=Surprised, [3]=Angry. Provides an immediate visual cue alongside the text label. Sprites must be assigned in the Inspector.
+
+---
+
+### ResultsPanel *(child of Canvas — create manually)*
+**Components:** RectTransform (center, large), Canvas Group (alpha=0, interactable=false by default)
+
+**What it does:** The post-round feedback screen. Activated by `SceneDirectorGame.EndRound()` — the Canvas Group alpha fades from 0 to 1 over 0.3 seconds at the start of the round-end delay. Shows the player their performance summary before the curtain closes. Remains visible while the curtain closes over it. Must be created manually in Director.unity; the code references it via a serialized field.
+
+---
+
+### HeadlineText *(child of ResultsPanel)*
+**Components:** RectTransform, TextMeshProUGUI (large, bold, center)
+
+**What it does:** Displays `"BRAVO!"` on win or `"BOOED OFF STAGE!"` on loss. The player's first read on how they did.
+
+---
+
+### EvaluationText *(child of ResultsPanel)*
+**Components:** RectTransform, TextMeshProUGUI (medium, center)
+
+**What it does:** Shows the LLM-generated (or hardcoded) performance evaluation string (e.g. `"Bravo! The crowd goes wild! A magnificent performance!"`). Provides theatrical narrative feedback about the performance.
+
+---
+
+### ScoreText *(child of ResultsPanel)*
+**Components:** RectTransform, TextMeshProUGUI (large, center)
+
+**What it does:** Displays the final score (e.g. `"Score: 300"`). Each passed element contributes 100 points (configurable via `_pointsPerElement`).
+
+---
+
+### ElementsPassedText *(child of ResultsPanel)*
+**Components:** RectTransform, TextMeshProUGUI (small, center)
+
+**What it does:** Shows the ratio of elements passed (e.g. `"3 / 3"` on a full win, `"1 / 3"` on early failure). Helps the player understand exactly where they succeeded or struggled.
+
+---
+
+### CameraElement *(child of Canvas)*
+**Components:** RectTransform, CameraController
+
+**What it does:** The camera UI element singleton. In `OnStart()`, `SceneDirectorGame` calls `CameraController.BindFeed(deps.Camera)`, which routes the live `WebCamTexture` to the `CameraDisplay` RawImage. In testing mode (`_testingMode = true`), `CameraController.Update()` listens for H/S/A/N keypresses and calls `OnEmotionDetected(emotion)`, which simultaneously swaps the AR mask via `MaskController.SetEmotion()` and updates the approval bar via `ApprovalBarController.SetDetectedEmotion()`. In live mode, this method is called by the `EmotionClassifier.OnEmotionChanged` subscription in `SceneDirectorGame.WireEvents()`.
+
+---
+
+### EventSystem
+**Components:** EventSystem, Standalone Input Module
+
+**What it does:** Unity's standard UI input system. Added automatically when the Canvas is created. Handles all button clicks and UI interactions (e.g. any future in-game buttons). Leave at defaults.
+
+---
+
+### SceneDirectorGame
+**Components:** SceneDirectorGame (script only — no visual components)
+
+**What it does:** The central orchestrator of the entire minigame. Implements `IMiniGame` so the `GameManager` can inject dependencies (`Camera`, `MediaPipe`, `LLM`) via `OnStart(MiniGameDependencies deps)`. Subscribes to all events from the 5 element singletons in `WireEvents()` and routes them through the `ResolveElement(bool passed)` method, which is the single point where element pass/fail logic is resolved. Manages the overall game state from curtain-open through sequence completion to curtain-close and menu return. Drives `AudienceController.SlightMove()` from `Update()` based on live approval bar state.
 
 ---
 
@@ -365,3 +578,117 @@ No audio exists yet. Suggested additions:
 - Countdown tick at low time (< 35%)
 - Emotion confirmation sound (bar filled)
 - Background theater ambience
+
+---
+
+## 9. TODO List
+
+Items are separated by who performs them. **BLOCKING** items must be resolved before any integration testing can occur.
+
+---
+
+### 9.1 You must do manually in the Unity Editor
+
+- [ ] **Register `Director.unity` in Build Settings** ⛔ BLOCKING
+  File → Build Settings → Add Open Scenes while Director.unity is open. Note the assigned index and communicate it so `SceneDirectorGame.SceneIndex` can be updated to match. Current value (5) collides with EmotionTest.unity.
+
+- [ ] **Create `StageRT` RenderTexture asset**
+  Right-click `Assets/RenderTextures/` → Create → Render Texture. Name it `StageRT`, set size to **640×480**. Assign to: (1) Stage Camera → Target Texture, (2) CameraDisplay RawImage → Texture. This is what makes 3D masks composite over the webcam feed inside the UI canvas.
+
+- [ ] **Create `ResultsPanel` canvas group in Director.unity** ⛔ BLOCKING
+  Add a Canvas Group child to the main Canvas. Set alpha=0, interactable=false by default. Add children: win/lose headline (TMP), evaluation text (TMP), score label (TMP), elements-passed label (TMP, e.g. `"3/3"`). This panel is activated by code at the start of `EndRound()`.
+
+- [ ] **Add score display label to the Script panel** ⛔ BLOCKING
+  Add a `TextMeshProUGUI` as a fourth child of the `Script` canvas panel (alongside CurrentEmotionText, NextEmotionText, ProgressText). This label will be wired in code to show the live score.
+
+- [ ] **Add audience speech bubble label**
+  Add a `TextMeshProUGUI` above the `AudienceSprite` in the hierarchy. This will be driven by `AudienceController.ShowDialogue()` for LLM audience lines.
+
+- [ ] **Add `StageLayer` layer**
+  Project Settings → Tags and Layers → add `StageLayer`. Assign it to `MaskRoot` and all three mask child GameObjects. Set Stage Camera Culling Mask to StageLayer only; set Main Camera to exclude StageLayer.
+
+- [ ] **Assign 3D theatrical mask models** *(when assets are ready)*
+  Drag Happy, Surprised, Angry mesh prefabs into `MaskController._maskObjects[1]`, `[2]`, `[3]` in the Inspector.
+
+- [ ] **Disable testing mode when EmotionClassifier is wired**
+  Set `CameraController._testingMode = false` in the Inspector once the live EmotionClassifier subscription is uncommented in code.
+
+---
+
+### 9.2 Claude handles in code
+
+#### BLOCKING
+
+- [ ] **Update `SceneDirectorGame.SceneIndex`**
+  Once Director.unity is registered in Build Settings and you know its index, update line 40 of `SceneDirectorGame.cs`.
+  _File:_ `SceneDirectorGame.cs`
+
+- [ ] **Implement score display logic**
+  Subscribe to `GameManager.OnScoreChanged` (or hook into `ResolveElement`) and update the score label. Flash it green for 0.3s on increase via a short coroutine.
+  _File:_ `SceneDirectorGame.cs`, `ScriptController.cs` or a new thin controller
+
+- [ ] **Implement `ResultsPanel` activation in `EndRound()`**
+  Populate the panel with win/lose headline, evaluation string, final score, and elements passed count. Fade it in (CanvasGroup.alpha over 0.3s) at the start of `EndRound()` before the `_endRoundDelay` wait.
+  _File:_ `SceneDirectorGame.cs`
+
+#### HIGH
+
+- [ ] **Null-guard `EndRound` + `_roundEnding` flag in `OnDestroy`**
+  Add null check before `ScenarioController.Instance.Close()`. Add `private bool _roundEnding` set to true when `EndRound` starts; in `OnDestroy`, if true call `OnEnd()` directly to prevent `GameManager` from getting stuck in `GameState.Playing`.
+  _File:_ `SceneDirectorGame.cs`
+
+- [ ] **Stage Camera RenderTexture validation warning**
+  In `MaskController.Awake()`, if `_stageCamera != null && _stageCamera.targetTexture == null` emit a `ServiceLogger.LogWarning`. Prevents silent failure where mask floats over black.
+  _File:_ `MaskController.cs`
+
+- [ ] **"Get Ready" cue between elements**
+  In `ActivateElementWithDelay()`, show `"Get Ready!"` on `_currentEmotionText` for the first 0.8s of the delay, then reveal the actual required emotion for the final 0.7s. Uses existing wired UI — no new GameObjects needed.
+  _File:_ `SceneDirectorGame.cs`
+
+#### MEDIUM
+
+- [ ] **Uncomment `EmotionClassifier` wiring**
+  Uncomment the subscription block in `SceneDirectorGame.WireEvents()` (lines 113–116). Prerequisite: Linux camera issues on EmotionClassifier resolved.
+  _File:_ `SceneDirectorGame.cs`
+
+- [ ] **Add `CurrentTopEmotion` to `EmotionClassifier` + wire continuous bar polling**
+  Add `public EmotionLabel CurrentTopEmotion { get; private set; }` returning the highest-confidence emotion each frame (not gated by confirmation hold). In `SceneDirectorGame.Update()`, call `ApprovalBarController.SetDetectedEmotion(classifier.CurrentTopEmotion)` each frame in live mode. Mask swap continues to use `OnEmotionChanged` (confirmed) for stability.
+  _Files:_ `EmotionClassifier.cs`, `SceneDirectorGame.cs`
+
+- [ ] **Add `_initialFillAmount` to `ApprovalBarController`**
+  Add `[Range(0f, 0.5f)] [SerializeField] private float _initialFillAmount = 0f;` and use it in `Activate()` instead of hard-coding 0f. Setting it to 0.2 in the Inspector gives a player-friendly head start.
+  _File:_ `ApprovalBarController.cs`
+
+- [ ] **Add difficulty curve fields to `ScriptController`**
+  Add `[SerializeField] private int _sequenceLength = 3;` (Range 3–6). Decrease `TimeLimit` per element in the hardcoded sequence (e.g. 5.0 → 4.5 → 4.0s). Both are Inspector-configurable.
+  _File:_ `ScriptController.cs`
+
+- [ ] **Convert `StartSequence()` to coroutine/callback pattern**
+  Refactor to accept an optional `Action<List<ScriptElement>>` callback (or become a coroutine) so async LLM generation can slot in without blocking. Keep synchronous `LoadSequence()` as the immediate fallback.
+  _Files:_ `ScriptController.cs`, `SceneDirectorGame.cs`
+
+#### LOW
+
+- [ ] **Wire gesture bonuses**
+  Subscribe to `GestureDetector` events in `WireEvents()` (with null guard via `FindFirstObjectByType`). Mapping: ThumbDown = instant bar fill + 50 bonus pts; OpenHand during Surprised = ×1.5 score; ClosedFist during Angry = ×1.5; Pinch during Happy = ×1.5. Gestures are additive, never required.
+  _Files:_ `SceneDirectorGame.cs`, `ApprovalBarController.cs`
+
+- [ ] **Add `ShowDialogue(string, float)` to `AudienceController`**
+  Displays the speech bubble label for the given duration then hides it. Called from `SceneDirectorGame` on element result; LLM audience lines target this method once wired.
+  _File:_ `AudienceController.cs`
+
+- [ ] **Enable LLM sequence generation**
+  Use `_deps.LLM.Ask()` (LLMConnector — real HTTP). Do NOT use `ILLMService` which routes to the GroqLLMService mock. Prompt: `"Output only valid JSON. Format: [{\"e\":1,\"t\":5}] where e=EmotionLabel int, t=seconds. No other text."` Parse in a new `ScriptLLMParser.cs`. Pre-generate 2–3 audience lines in the same call to avoid mid-round latency.
+  _Files:_ `ScriptController.cs`, new `ScriptLLMParser.cs`, `SceneDirectorGame.cs`
+
+- [ ] **Add `RequiredGesture` to `ScriptElement`**
+  Add `public GestureType RequiredGesture;` (default `None` = not required). Update `ApprovalBarController.IsCorrect` to check gesture when `_requiredGesture != None`.
+  _Files:_ `ScriptController.cs`, `ApprovalBarController.cs`
+
+- [ ] **Add mask swap scale-bounce coroutine to `MaskController`**
+  `SwapMask(int newIndex)`: scale new mesh 0.1→1 and old mesh 1→0 simultaneously over 0.15s. Implement only after real 3D mask models exist — effect is invisible on placeholder geometry.
+  _File:_ `MaskController.cs`
+
+- [ ] **Document scene-scoped singleton constraint in Section 3**
+  Add a note: scene-scoped singletons must NOT receive `DontDestroyOnLoad`. Director.unity is always a full scene swap, never additive. Adding DontDestroyOnLoad would break the Instance lifecycle on scene reload.
+  _File:_ `docs/SceneDirector.md`

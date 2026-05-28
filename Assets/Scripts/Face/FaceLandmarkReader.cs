@@ -229,10 +229,10 @@ namespace ARcadeRush.Face
             _rawMetrics[4] = w * bs_smile + w2 * lm_smile;
  
             // [5] Brow Furrow — PRIMARY angry signal
-            // browDown + noseSneer captures the angry brow+nose scrunch.
-            // Landmark proximity of inner brows is a solid backup.
+            // browDown only — noseSneer removed because it also fires during genuine broad smiles
+            // (nasolabial fold deepens), causing cross-activation with Happy.
             float bs_furrow = _hasBlendshapes
-                ? (_bs_browDownL + _bs_browDownR) * 0.5f + (_bs_noseSneerL + _bs_noseSneerR) * 0.25f
+                ? (_bs_browDownL + _bs_browDownR) * 0.5f
                 : 0f;
             _rawMetrics[5] = w * bs_furrow + w2 * lm_furrow;
  

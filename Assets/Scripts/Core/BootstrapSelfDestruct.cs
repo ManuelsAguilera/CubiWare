@@ -16,6 +16,8 @@ namespace CubiWare.Core
         private const string BootstrapSceneName = "Bootstrap";
         private bool _hasSubscribed = false;
 
+        [SerializeField] private GameObject _bootstrapSceneOnlyRoot; 
+
         private void Start()
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -44,7 +46,14 @@ namespace CubiWare.Core
                     _hasSubscribed = false;
                 }
 
-                Destroy(gameObject);
+                if (_bootstrapSceneOnlyRoot != null)
+                {
+                    Destroy(_bootstrapSceneOnlyRoot);
+                }
+                else
+                {
+                    Destroy(gameObject);
+                }
             }
         }
 

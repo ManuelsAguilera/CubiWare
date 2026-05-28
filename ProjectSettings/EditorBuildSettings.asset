@@ -23,15 +23,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Shooter.unity
     guid: 68cb9644510ae504e9e12848a6ce0241
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/FruitNinja.unity
     guid: 3e9bf35f34168584ca286c1397ac27d8
   - enabled: 1
     path: Assets/Scenes/EmotionTest.unity
     guid: 6dd349558487d87d49b60173b8234e4c
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Simon.unity
     guid: fe76df2be4249ec468ee01b8ee206784
+  - enabled: 1
+    path: Assets/Scenes/Director.unity
+    guid: a7838aaeff21d994583f44d431808937
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
