@@ -23,7 +23,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/EmotionTest.unity
     guid: 6dd349558487d87d49b60173b8234e4c
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Simon.unity
     guid: fe76df2be4249ec468ee01b8ee206784
   - enabled: 1
