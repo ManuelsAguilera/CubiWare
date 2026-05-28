@@ -61,27 +61,27 @@ namespace CubiWare.Core.Services
         {
             try
             {
-                _logger.LogInfo(nameof(CameraFeedProvider), "StartCamera called.");
+                // _logger.LogInfo(nameof(CameraFeedProvider), "StartCamera called.");
 
                 WebCamDevice[] devices = WebCamTexture.devices;
                 if (devices.Length == 0)
                 {
-                    _logger.LogError(nameof(CameraFeedProvider), "No camera devices found.", ServiceErrorCode.CameraInitFailed);
+                    // _logger.LogError(nameof(CameraFeedProvider), "No camera devices found.", ServiceErrorCode.CameraInitFailed);
                     return;
                 }
 
                 string deviceName = devices[0].name;
-                _logger.LogInfo(nameof(CameraFeedProvider), $"Using camera device: {deviceName}");
+                // _logger.LogInfo(nameof(CameraFeedProvider), $"Using camera device: {deviceName}");
 
                 _webCamTexture = new WebCamTexture(deviceName, _resolution.x, _resolution.y, 30);
                 _webCamTexture.Play();
                 _isRunning = true;
 
-                _logger.LogInfo(nameof(CameraFeedProvider), $"Camera started: {deviceName}, Resolution: {_webCamTexture.width}x{_webCamTexture.height}");
+                // _logger.LogInfo(nameof(CameraFeedProvider), $"Camera started: {deviceName}, Resolution: {_webCamTexture.width}x{_webCamTexture.height}");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _logger.LogError(nameof(CameraFeedProvider), $"Failed to start camera: {ex.Message}", ServiceErrorCode.CameraInitFailed);
+                // _logger.LogError(nameof(CameraFeedProvider), $"Failed to start camera: {ex.Message}", ServiceErrorCode.CameraInitFailed);
                 _isRunning = false;
             }
         }
@@ -108,11 +108,11 @@ namespace CubiWare.Core.Services
                 }
 
                 _isRunning = false;
-                _logger.LogInfo(nameof(CameraFeedProvider), "Camera stopped.");
+                // _logger.LogInfo(nameof(CameraFeedProvider), "Camera stopped.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _logger.LogError(nameof(CameraFeedProvider), $"Error stopping camera: {ex.Message}", ServiceErrorCode.CameraFrameReadError);
+                // _logger.LogError(nameof(CameraFeedProvider), $"Error stopping camera: {ex.Message}", ServiceErrorCode.CameraFrameReadError);
             }
         }
 

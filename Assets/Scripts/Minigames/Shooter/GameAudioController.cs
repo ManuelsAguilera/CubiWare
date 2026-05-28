@@ -26,9 +26,11 @@ namespace ARcadeRush.Minigames.Shooter
         [SerializeField] private AudioSource _mediumSource;
         [SerializeField] private AudioSource _highSource;
         [SerializeField] private AudioSource _pauseSource;
+        [SerializeField] private AudioSource _sfxSource;
 
         [Header("Volume Settings")]
         [SerializeField] private float _musicVolume = 0.8f;
+        [SerializeField] private float _sfxVolume = 1.0f;
 
         [Header("Fade Settings")]
         [SerializeField] private float _fadeDuration = 0.5f;
@@ -78,6 +80,15 @@ namespace ARcadeRush.Minigames.Shooter
                     3 => "High",
                     _ => "None"
                 };
+            }
+        }
+
+        /// <summary>Play a one-shot sound effect through the SFX channel.</summary>
+        public void PlaySFX(AudioClip clip)
+        {
+            if (_sfxSource != null && clip != null)
+            {
+                _sfxSource.PlayOneShot(clip, _sfxVolume);
             }
         }
 

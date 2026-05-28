@@ -116,16 +116,27 @@ namespace ARcadeRush.Core
  
             FlushPendingMediapipeResults();
  
-            if (CameraFeedCtrl.Instance == null) return;
+            if (CameraFeedCtrl.Instance == null)
+            {
+                // Log only occasionally or once
+                return;
+            }
             var webCamTex = CameraFeedCtrl.Instance.ActiveWebCamTexture;
-            if (webCamTex == null || !webCamTex.isPlaying) return;
- 
-            int width      = webCamTex.width;
-            int height     = webCamTex.height;
-            int pixelCount = width * height;
+            if (webCamTex == null || !webCamTex.isPlaying)
+            {
+                // This might be the culprit.
+                return;
+            }
+            
+            // Log if detected
+            // Debug.Log($"[MediaPipeController] Processing frame...");
 
-            // Allocate once; resize only if the camera resolution changes (should never happen at runtime).
-            if (_pixelBuffer == null || _pixelBuffer.Length != pixelCount)
+            Color32[] pixels = webCamTex.GetPixels32();
+            int width  = webCamTex.width;
+            int height = webCamTex.height;
+ 
+            var pixelData = new Unity.Collections.NativeArray<byte>(pixels.Length * 4, Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < pixels.Length; i++)
             {
                 _pixelBuffer = new Color32[pixelCount];
                 if (_nativePixels.IsCreated) _nativePixels.Dispose();
@@ -163,6 +174,8 @@ namespace ARcadeRush.Core
             {
                 var src   = result.handLandmarks[0];
                 int count = src.landmarks?.Count ?? 0;
+                // Debug.Log($"[MediaPipeController] Hand detected! Landmarks count: {count}");
+
                 var copy  = NormalizedLandmarks.Alloc(count);
                 src.CloneTo(ref copy);
                 _handOutcomeQueue.Enqueue(new PendingHandOutcome { HasLandmarks = true, Landmarks = copy });
@@ -172,6 +185,7 @@ namespace ARcadeRush.Core
                 _handOutcomeQueue.Enqueue(new PendingHandOutcome { HasLandmarks = false });
             }
         }
+
  
         // ── CAMBIO 3: encolar el FaceLandmarkerResult completo ───────────────
         // Ahora: se clona el resultado para evitar que MediaPipe reutilice la memoria
