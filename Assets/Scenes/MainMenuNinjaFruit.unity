@@ -1227,6 +1227,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b872b91be32df4449d0377d98feedcd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  gameSceneName: FruitNinja
+  titleText: {fileID: 1783631245}
+  subtitleText: {fileID: 1670853393}
+  playButton: {fileID: 442361422}
 --- !u!4 &2099939012
 Transform:
   m_ObjectHideFlags: 0

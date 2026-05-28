@@ -26,8 +26,10 @@ namespace ARcadeRush.Minigames.Shooter
     /// </summary>
     public class GunController : MonoBehaviour
     {
-        [Header("Audio")]
-        [SerializeField] private AudioSource _audioSource;
+        [Header("References")]
+        [SerializeField] private GameAudioController _audioController;
+
+        [Header("Audio Clips")]
         [Tooltip("3 gunshot clips that cycle/alternate on each shot.")]
         [SerializeField] private AudioClip[] _shootSFX;
         [SerializeField] private AudioClip _reloadSFX;
@@ -190,10 +192,10 @@ namespace ARcadeRush.Minigames.Shooter
             PerformHitscan();
 
             // Play alternating shoot sound
-            if (_audioSource != null && _shootSFX != null && _shootSFX.Length > 0)
+            if (_audioController != null && _shootSFX != null && _shootSFX.Length > 0)
             {
                 AudioClip clip = _shootSFX[_lastShootIndex % _shootSFX.Length];
-                _audioSource.PlayOneShot(clip);
+                _audioController.PlaySFX(clip);
                 _lastShootIndex++;
             }
 
@@ -208,8 +210,8 @@ namespace ARcadeRush.Minigames.Shooter
 
             OnReloadStarted?.Invoke();
 
-            if (_audioSource != null && _reloadSFX != null)
-                _audioSource.PlayOneShot(_reloadSFX);
+            if (_audioController != null && _reloadSFX != null)
+                _audioController.PlaySFX(_reloadSFX);
 
             StartCoroutine(ReloadSequence());
             return true;
@@ -543,7 +545,7 @@ namespace ARcadeRush.Minigames.Shooter
                 _aimPreviewInstance = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _aimPreviewInstance.name = "AimPreview";
                 _aimPreviewInstance.transform.SetParent(transform, false);
-                _aimPreviewInstance.transform.localScale = Vector3.one * 0.5f;
+                _aimPreviewInstance.transform.localScale = Vector3.one * 0.25f;
                 Destroy(_aimPreviewInstance.GetComponent<Collider>());
                 _aimPreviewComponent = _aimPreviewInstance.AddComponent<AimPreview>();
             }

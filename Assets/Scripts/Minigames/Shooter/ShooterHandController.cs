@@ -1,24 +1,15 @@
+using System.Collections.Generic;
 using UnityEngine;
-using ARcadeRush.Core;
 using ARcadeRush.Hand;
-using CubiWare.Core.Interfaces;
-using CubiWare.Core.Logging;
+using ARcadeRush.Core;
 
 namespace ARcadeRush.Minigames.Shooter
 {
     /// <summary>
-    /// Controls aiming and shooting via hand tracking.
-    /// - Index fingertip screen position → aim ray (Camera.ScreenPointToRay)
-    /// - Closed fist → fire (delegates to GunController which handles hitscan)
-    /// - ThumbDown → safety toggle
-    ///
-    /// Hand data is consumed through the <see cref="IHandDetector"/> interface,
-    /// decoupling this controller from MediaPipeController directly.
-    ///
-    /// Hit detection is handled entirely by GunController (hitscan from muzzle).
-    /// This controller only sets the aim direction and triggers shoot/reload.
+    /// Moves the gun to follow the palm center (cursor approach).
+    /// The gun translates in XY screen space at a fixed Z depth — no rotation.
+    /// ClosedFist gesture fires.
     /// </summary>
-    [RequireComponent(typeof(Hand3DProjector), typeof(GestureDetector))]
     public class ShooterHandController : MonoBehaviour
     {
         [Header("Gun Visual")]
@@ -26,179 +17,88 @@ namespace ARcadeRush.Minigames.Shooter
 
         [Header("Aiming")]
         [SerializeField] private float _maxRayDistance = 50f;
-        [SerializeField] private LayerMask _targetLayer;
         [SerializeField] private bool _showDebugRay = true;
 
         [Header("Shooting")]
         [SerializeField] private float _fireCooldown = 0.3f;
 
-        [Header("Safety")]
-        [SerializeField] private bool _startWithSafetyOn = true;
+        [Header("Cursor Settings")]
+        [SerializeField] private Hand3DProjector _projector;
+        [SerializeField] private Vector3 _gunLocalOffset = new Vector3(0f, -0.3f, 0.6f);
+        [SerializeField] private int _smoothingFrames = 5;
 
-        private Hand3DProjector _projector;
+        [Header("Camera Follow")]
+        [SerializeField] private float _cameraPanRange = 5f;
+        [SerializeField] private float _cameraFollowSpeed = 5f;
+        [SerializeField] private float _minCameraY = 0.55f;
+        [SerializeField] private float _maxCameraY = 10f;
+
+        [Header("Edge Scroll")]
+        [SerializeField] private float _edgeScrollThreshold = 0.8f;
+        [SerializeField] private float _edgeScrollSpeed = 10f;
+        [SerializeField] private float _maxExtendX = 8f;
+        [SerializeField] private float _maxExtendY = 5f;
+
+        private static readonly int[] PalmIndices = { 0, 5, 9, 13, 17 };
+
         private GestureDetector _gestureDetector;
         private Camera _mainCamera;
 
-        private bool _safetyOn;
         private float _lastFireTime;
         private bool _canFire = true;
 
-        // ── IHandDetector integration ───────────────────────────────────────
-        private IHandDetector _handDetector;
-        private HandLandmarkData _lastHandData;
-        private bool _hasHandData;
+        private readonly Queue<float> _palmXBuffer = new Queue<float>();
+        private readonly Queue<float> _palmYBuffer = new Queue<float>();
+        private Vector3 _baseCameraPos;
+        private Vector3 _initialCameraPos;
 
-        private readonly ServiceLogger _logger = ServiceLogger.Instance;
-
-        /// <summary>Target world point the gun should look at (computed from aim ray).</summary>
-        private Vector3 _aimTargetPoint;
-
-        /// <summary>Current aim ray direction in world space.</summary>
-        public Vector3 AimDirection { get; private set; } = Vector3.forward;
-
-        /// <summary>Current aim ray origin in world space (near-camera point).</summary>
-        public Vector3 AimOrigin { get; private set; } = Vector3.zero;
-
-        /// <summary>Whether the hand is currently detected and aiming.</summary>
+        /// <summary>Whether the hand is currently tracked and the gun is following it.</summary>
         public bool IsAiming { get; private set; } = false;
 
         private void Awake()
         {
-            _projector = GetComponent<Hand3DProjector>();
             _gestureDetector = GetComponent<GestureDetector>();
             _mainCamera = Camera.main;
-            _safetyOn = _startWithSafetyOn;
-
-            // Resolve IHandDetector — try finding it as a component first, then
-            // fall back to MediaPipeController's service-layer provider
-            _handDetector = FindFirstObjectByType<MonoBehaviour>() as IHandDetector;
-            if (_handDetector == null && MediaPipeController.Instance != null)
+            if (_mainCamera != null)
             {
-                _handDetector = MediaPipeController.Instance.HandDetector;
-                _logger.LogInfo("ShooterHandController",
-                    "IHandDetector resolved from MediaPipeController.HandDetector.");
+                _baseCameraPos = _mainCamera.transform.position;
+                _initialCameraPos = _baseCameraPos;
             }
+        }
 
-            if (_handDetector == null)
-            {
-                _logger.LogWarning("ShooterHandController",
-                    "IHandDetector not available. Hand tracking will be disabled.");
-            }
+        private void Start()
+        {
+            if (_mainCamera == null) _mainCamera = Camera.main;
+            if (_mainCamera == null || _gunController == null) return;
+
+            _baseCameraPos = _mainCamera.transform.position;
+            _initialCameraPos = _baseCameraPos;
+            _gunController.transform.position =
+                _mainCamera.transform.position
+                + _mainCamera.transform.right   * _gunLocalOffset.x
+                + _mainCamera.transform.up      * _gunLocalOffset.y
+                + _mainCamera.transform.forward * _gunLocalOffset.z;
+            _gunController.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
         }
 
         private void OnEnable()
         {
-            _gestureDetector.OnClosedFist += HandleFist;
-            _gestureDetector.OnThumbDown += HandleThumbDown;
-
-            if (_handDetector != null)
-            {
-                _handDetector.OnHandDetected += HandleHandDetected;
-                _handDetector.OnHandLost += HandleHandLost;
-                _logger.LogInfo("ShooterHandController",
-                    "Subscribed to IHandDetector events.");
-            }
+            _gestureDetector.OnClosedFist += HandleClosedFist;
         }
 
         private void OnDisable()
         {
-            _gestureDetector.OnClosedFist -= HandleFist;
-            _gestureDetector.OnThumbDown -= HandleThumbDown;
-
-            if (_handDetector != null)
-            {
-                _handDetector.OnHandDetected -= HandleHandDetected;
-                _handDetector.OnHandLost -= HandleHandLost;
-            }
-        }
-
-        /// <summary>
-        /// Caches the latest hand landmark data for use in <see cref="UpdateAimRay"/>.
-        /// </summary>
-        private void HandleHandDetected(HandLandmarkData data)
-        {
-            _lastHandData = data;
-            _hasHandData = data.Landmarks != null && data.Landmarks.Count >= 21;
-        }
-
-        /// <summary>
-        /// Clears cached hand data when tracking is lost.
-        /// </summary>
-        private void HandleHandLost()
-        {
-            _hasHandData = false;
+            _gestureDetector.OnClosedFist -= HandleClosedFist;
         }
 
         private void Update()
         {
-            UpdateAimRay();
-
-            // Rotate the gun to face the aim target
-            if (_gunController != null && IsAiming)
-            {
-                _gunController.LookAt(_aimTargetPoint);
-            }
+            UpdateGunPosition();
         }
 
-        /// <summary>
-        /// Computes the aim ray from the index fingertip screen position.
-        /// Uses Camera.ScreenPointToRay for reliable depth projection — same approach
-        /// as the debug mouse aiming in GunController.
-        ///
-        /// Hand data is sourced from <see cref="IHandDetector"/> (via <see cref="_lastHandData"/>)
-        /// instead of directly from MediaPipeController/Hand3DProjector.
-        /// The normalized landmark coords are mirrored on X (1f - x) to match the
-        /// webcam mirror display.
-        /// </summary>
-        private void UpdateAimRay()
+        private void UpdateGunPosition()
         {
-            // Use IHandDetector data if available; fall back to Hand3DProjector
-            if (_hasHandData && _lastHandData.Landmarks != null && _lastHandData.Landmarks.Count >= 21)
-            {
-                if (_mainCamera == null) _mainCamera = Camera.main;
-                if (_mainCamera == null) return;
-
-                // Index fingertip (landmark 8) in normalized image coords
-                Vector2 tip = _lastHandData.Landmarks[8];
-
-                // Convert to screen pixel position, mirroring X for webcam parity
-                // (matches Hand3DProjector's 1f - landmarks[i].x in HandleHandDetected)
-                Vector3 screenPos = new Vector3(
-                    (1f - tip.x) * Screen.width,
-                    (1f - tip.y) * Screen.height,
-                    0f
-                );
-
-                // Aim origin: project fingertip to a point ~10 units in front of camera
-                AimOrigin = _mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 10f));
-
-                // Cast ray from camera through the fingertip screen position
-                Ray ray = _mainCamera.ScreenPointToRay(screenPos);
-
-                if (Physics.Raycast(ray, out RaycastHit hit, _maxRayDistance, _targetLayer))
-                {
-                    _aimTargetPoint = hit.point;
-                    AimDirection = (_aimTargetPoint - AimOrigin).normalized;
-                }
-                else
-                {
-                    _aimTargetPoint = ray.origin + ray.direction * _maxRayDistance;
-                    AimDirection = ray.direction;
-                }
-
-                IsAiming = true;
-
-                // Debug visualization
-                if (_showDebugRay)
-                {
-                    Debug.DrawRay(AimOrigin, AimDirection * _maxRayDistance, _safetyOn ? Color.yellow : Color.red);
-                }
-                return;
-            }
-
-            // Fallback: read from Hand3DProjector (legacy MediaPipe path)
-            var norm = _projector.LastNormalizedLandmarks.landmarks;
-            if (norm == null || norm.Count < 21)
+            if (_projector == null)
             {
                 IsAiming = false;
                 return;
@@ -207,93 +107,110 @@ namespace ARcadeRush.Minigames.Shooter
             if (_mainCamera == null) _mainCamera = Camera.main;
             if (_mainCamera == null) return;
 
-            // Index fingertip (landmark 8) in normalized image coords
-            var tipLegacy = norm[8];
-
-            // Convert to screen pixel position, mirroring X for webcam parity
-            Vector3 screenPosLegacy = new Vector3(
-                (1f - tipLegacy.x) * Screen.width,
-                (1f - tipLegacy.y) * Screen.height,
-                0f
-            );
-
-            // Aim origin: project fingertip to a point ~10 units in front of camera
-            AimOrigin = _mainCamera.ScreenToWorldPoint(new Vector3(screenPosLegacy.x, screenPosLegacy.y, 10f));
-
-            // Cast ray from camera through the fingertip screen position
-            Ray rayLegacy = _mainCamera.ScreenPointToRay(screenPosLegacy);
-
-            if (Physics.Raycast(rayLegacy, out RaycastHit hitLegacy, _maxRayDistance, _targetLayer))
+            var normalized = _projector.LastNormalizedLandmarks;
+            if (normalized.landmarks == null || normalized.landmarks.Count < 21)
             {
-                _aimTargetPoint = hitLegacy.point;
-                AimDirection = (_aimTargetPoint - AimOrigin).normalized;
+                IsAiming = false;
+                return;
             }
-            else
+
+            // Palm center: average of landmarks 0, 5, 9, 13, 17 in screen space.
+            // X is mirrored (1-x) to compensate for webcam horizontal flip.
+            // Y is NOT flipped — MediaPipe Y=0 is at bottom, matching Unity screen space.
+            float sumX = 0f, sumY = 0f;
+            foreach (int i in PalmIndices)
             {
-                _aimTargetPoint = rayLegacy.origin + rayLegacy.direction * _maxRayDistance;
-                AimDirection = rayLegacy.direction;
+                sumX += (1f - normalized.landmarks[i].x) * Screen.width;
+                sumY += normalized.landmarks[i].y * Screen.height;
             }
+            float rawX = sumX / PalmIndices.Length;
+            float rawY = sumY / PalmIndices.Length;
+
+            float smoothX = Smooth(_palmXBuffer, rawX);
+            float smoothY = Smooth(_palmYBuffer, rawY);
+
+            // Pan camera first (independent of gun — no feedback loop).
+            // Camera target = base position + palm offset from screen center.
+            float palmNormX = smoothX / Screen.width;   // 0–1
+            float palmNormY = smoothY / Screen.height;  // 0–1
+            float panX = (palmNormX - 0.5f) * _cameraPanRange;
+            float panY = (palmNormY - 0.5f) * _cameraPanRange;
+
+            // Edge scroll: when palm is beyond threshold % of pan range, drift _baseCameraPos
+            float halfRange = _cameraPanRange * 0.5f;
+            float edgeZone = halfRange * _edgeScrollThreshold;
+
+            float overflowX = Mathf.Abs(panX) - edgeZone;
+            if (overflowX > 0f)
+            {
+                _baseCameraPos.x += Mathf.Sign(panX) * overflowX * _edgeScrollSpeed * Time.deltaTime;
+                _baseCameraPos.x = Mathf.Clamp(_baseCameraPos.x,
+                    _initialCameraPos.x - _maxExtendX,
+                    _initialCameraPos.x + _maxExtendX);
+            }
+
+            float overflowY = Mathf.Abs(panY) - edgeZone;
+            if (overflowY > 0f)
+            {
+                _baseCameraPos.y += Mathf.Sign(panY) * overflowY * _edgeScrollSpeed * Time.deltaTime;
+                _baseCameraPos.y = Mathf.Clamp(_baseCameraPos.y,
+                    _initialCameraPos.y - _maxExtendY,
+                    _initialCameraPos.y + _maxExtendY);
+            }
+
+            Vector3 targetCamPos = _baseCameraPos + new Vector3(panX, panY, 0f);
+            targetCamPos.y = Mathf.Clamp(targetCamPos.y, _minCameraY, _maxCameraY);
+            _mainCamera.transform.position = Vector3.Lerp(
+                _mainCamera.transform.position, targetCamPos, _cameraFollowSpeed * Time.deltaTime);
+
+            // Gun stays fixed relative to camera using local offset.
+            // X = right/left, Y = up/down, Z = forward depth (all in camera-local space).
+            Vector3 gunWorldPos = _mainCamera.transform.position
+                + _mainCamera.transform.right   * _gunLocalOffset.x
+                + _mainCamera.transform.up      * _gunLocalOffset.y
+                + _mainCamera.transform.forward * _gunLocalOffset.z;
+
+            _gunController.transform.position = gunWorldPos;
+            _gunController.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
 
             IsAiming = true;
 
-            // Debug visualization
             if (_showDebugRay)
-            {
-                Debug.DrawRay(AimOrigin, AimDirection * _maxRayDistance, _safetyOn ? Color.yellow : Color.red);
-            }
+                Debug.DrawRay(gunWorldPos, _gunController.transform.forward * _maxRayDistance, Color.red);
         }
 
-        /// <summary>
-        /// Called when ClosedFist gesture is detected.
-        /// If safety is off and cooldown has elapsed, fires the gun.
-        /// </summary>
-        private void HandleFist()
+        private void HandleClosedFist()
         {
-            if (_safetyOn) return;
-
             if (!_canFire) return;
             if (Time.time - _lastFireTime < _fireCooldown) return;
-
             Fire();
         }
 
-        /// <summary>Called when ThumbDown gesture is detected — toggles safety.</summary>
-        private void HandleThumbDown()
-        {
-            _safetyOn = !_safetyOn;
-        }
-
-        /// <summary>
-        /// Delegates firing to GunController.Shoot(), which handles:
-        /// - Ammo decrement & auto-reload
-        /// - Hitscan raycast from muzzle → Target hit detection
-        /// - Bullet trail visual
-        /// - Fire rate limiting
-        /// </summary>
         private void Fire()
         {
             _lastFireTime = Time.time;
             _canFire = false;
-
-            // GunController handles hitscan, aim preview, bullet trail, and events internally.
             _gunController?.Shoot();
-
-            // Reset fire cooldown
             Invoke(nameof(ResetFireCooldown), _fireCooldown);
         }
 
-        /// <summary>Trigger a reload animation on the gun (if assigned).</summary>
         public void Reload()
         {
-            if (_gunController != null)
-            {
-                _gunController.Reload();
-            }
+            _gunController?.Reload();
         }
 
         private void ResetFireCooldown()
         {
             _canFire = true;
+        }
+
+        private float Smooth(Queue<float> buffer, float value)
+        {
+            buffer.Enqueue(value);
+            if (buffer.Count > _smoothingFrames) buffer.Dequeue();
+            float sum = 0f;
+            foreach (var v in buffer) sum += v;
+            return sum / buffer.Count;
         }
     }
 }

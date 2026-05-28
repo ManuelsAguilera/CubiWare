@@ -31,9 +31,10 @@ namespace CubiWare.Core
             { "MainMenu", "Assets/Scenes/MainMenu.unity" },
             { "DummyTest", "Assets/Scenes/DummyTest.unity" },
             { "Shooter", "Assets/Scenes/Shooter.unity" },
-            { "FruitNinja", "Assets/Scenes/DummyTest.unity" },
-            { "EmotionTest", "Assets/Scenes/DummyTest.unity" },
-            { "Simon", "Assets/Scenes/DummyTest.unity" }
+            { "FruitNinja", "Assets/Scenes/FruitNinja.unity" },
+            { "EmotionTest", "Assets/Scenes/EmotionTest.unity" },
+            { "Simon", "Assets/Scenes/Simon.unity" },
+            { "MainMenuNinjaFruit", "Assets/Scenes/MainMenuNinjaFruit.unity" }
         };
 
         private static readonly ServiceLogger _logger = ServiceLogger.Instance;

@@ -48,9 +48,9 @@ namespace ARcadeRush.UI
 
             if (_startFruitNinjaBtn != null)
             {
-                // FruitNinja placeholder — currently points to DummyTest scene
+                // Load the specialized NinjaFruit menu scene
                 _startFruitNinjaBtn.onClick.AddListener(() =>
-                    LoadSceneByName("FruitNinja"));
+                    LoadSceneByName("MainMenuNinjaFruit"));
             }
 
             if (_startDirectorBtn != null)
