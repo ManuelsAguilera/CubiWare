@@ -52,7 +52,7 @@ namespace CubiWare.Core
             TryRegister("Shooter", "ARcadeRush.Minigames.Shooter.ShooterGame");
             TryRegister("FruitNinja", null);        // Placeholder — no implementation yet
             TryRegister("EmotionTest", null);        // Placeholder — no implementation yet
-            TryRegister("Simon", null);              // Placeholder — no implementation yet
+            TryRegister("Simon", "ARcadeRush.Minigames.Simon.SimonGame");
 
             _logger.LogInfo("MiniGameRegistry", $"Auto-registration complete. {_registry.Count} minigames registered.");
         }

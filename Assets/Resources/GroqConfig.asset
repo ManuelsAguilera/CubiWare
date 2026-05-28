@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 109aabc738aab354d8eb6da7726c2e3e, type: 3}
   m_Name: GroqConfig
   m_EditorClassIdentifier: 
-  _apiKey: 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
+  _apiKey: 

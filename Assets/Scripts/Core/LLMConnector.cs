@@ -20,6 +20,7 @@ namespace ARcadeRush.Core
     {
         public string model;
         public int max_tokens;
+        public int max_completion_tokens;
         public float temperature;
         public GroqMessage[] messages;
     }
@@ -41,7 +42,7 @@ namespace ARcadeRush.Core
         public static LLMConnector Instance { get; private set; }
 
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-        private const string MODEL_NAME = "llama-3-8b-8192";
+        private const string MODEL_NAME = "llama-3.1-8b-instant";
         private const int MAX_TOKENS = 120;
         private const float TEMPERATURE = 0.7f;
 
@@ -106,6 +107,7 @@ namespace ARcadeRush.Core
             {
                 model = MODEL_NAME,
                 max_tokens = MAX_TOKENS,
+                max_completion_tokens = MAX_TOKENS,
                 temperature = TEMPERATURE,
                 messages = new GroqMessage[]
                 {
@@ -181,8 +183,9 @@ namespace ARcadeRush.Core
                 }
                 else
                 {
-                    _logger.LogError("LLMConnector", $"HTTP Error {request.responseCode} - {request.error}", ServiceErrorCode.LLMConnectionFailed);
-                    onError?.Invoke("HTTP Error: " + request.responseCode);
+                    string respText = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
+                    _logger.LogError("LLMConnector", $"HTTP Error {request.responseCode} - {request.error}. Body: {respText}", ServiceErrorCode.LLMConnectionFailed);
+                    onError?.Invoke("HTTP Error: " + request.responseCode + (string.IsNullOrEmpty(respText) ? string.Empty : " - " + respText));
                 }
             }
         }
