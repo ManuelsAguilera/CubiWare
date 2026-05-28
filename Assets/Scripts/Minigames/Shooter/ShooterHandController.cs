@@ -28,14 +28,8 @@ namespace ARcadeRush.Minigames.Shooter
         [SerializeField] private int _smoothingFrames = 5;
 
         [Header("Camera Follow")]
-        [SerializeField] private float _cameraPanRange = 5f;
-        [SerializeField] private float _cameraFollowSpeed = 5f;
         [SerializeField] private float _minCameraY = 0.55f;
         [SerializeField] private float _maxCameraY = 10f;
-
-        [Header("Edge Scroll")]
-        [SerializeField] private float _edgeScrollThreshold = 0.8f;
-        [SerializeField] private float _edgeScrollSpeed = 10f;
         [SerializeField] private float _maxExtendX = 8f;
         [SerializeField] private float _maxExtendY = 5f;
 
@@ -49,7 +43,6 @@ namespace ARcadeRush.Minigames.Shooter
 
         private readonly Queue<float> _palmXBuffer = new Queue<float>();
         private readonly Queue<float> _palmYBuffer = new Queue<float>();
-        private Vector3 _baseCameraPos;
         private Vector3 _initialCameraPos;
 
         /// <summary>Whether the hand is currently tracked and the gun is following it.</summary>
@@ -60,10 +53,7 @@ namespace ARcadeRush.Minigames.Shooter
             _gestureDetector = GetComponent<GestureDetector>();
             _mainCamera = Camera.main;
             if (_mainCamera != null)
-            {
-                _baseCameraPos = _mainCamera.transform.position;
-                _initialCameraPos = _baseCameraPos;
-            }
+                _initialCameraPos = _mainCamera.transform.position;
         }
 
         private void Start()
@@ -71,8 +61,7 @@ namespace ARcadeRush.Minigames.Shooter
             if (_mainCamera == null) _mainCamera = Camera.main;
             if (_mainCamera == null || _gunController == null) return;
 
-            _baseCameraPos = _mainCamera.transform.position;
-            _initialCameraPos = _baseCameraPos;
+            _initialCameraPos = _mainCamera.transform.position;
             _gunController.transform.position =
                 _mainCamera.transform.position
                 + _mainCamera.transform.right   * _gunLocalOffset.x
@@ -129,39 +118,16 @@ namespace ARcadeRush.Minigames.Shooter
             float smoothX = Smooth(_palmXBuffer, rawX);
             float smoothY = Smooth(_palmYBuffer, rawY);
 
-            // Pan camera first (independent of gun — no feedback loop).
-            // Camera target = base position + palm offset from screen center.
-            float palmNormX = smoothX / Screen.width;   // 0–1
-            float palmNormY = smoothY / Screen.height;  // 0–1
-            float panX = (palmNormX - 0.5f) * _cameraPanRange;
-            float panY = (palmNormY - 0.5f) * _cameraPanRange;
+            // Direct mapping: hand position → camera position, no lag or threshold zones.
+            // Full screen width maps to [-_maxExtendX, +_maxExtendX] around initial position.
+            float palmNormX = smoothX / Screen.width;
+            float palmNormY = smoothY / Screen.height;
 
-            // Edge scroll: when palm is beyond threshold % of pan range, drift _baseCameraPos
-            float halfRange = _cameraPanRange * 0.5f;
-            float edgeZone = halfRange * _edgeScrollThreshold;
+            float targetX = _initialCameraPos.x + (palmNormX - 0.5f) * 2f * _maxExtendX;
+            float targetY = _initialCameraPos.y + (palmNormY - 0.5f) * 2f * _maxExtendY;
+            targetY = Mathf.Clamp(targetY, _minCameraY, _maxCameraY);
 
-            float overflowX = Mathf.Abs(panX) - edgeZone;
-            if (overflowX > 0f)
-            {
-                _baseCameraPos.x += Mathf.Sign(panX) * overflowX * _edgeScrollSpeed * Time.deltaTime;
-                _baseCameraPos.x = Mathf.Clamp(_baseCameraPos.x,
-                    _initialCameraPos.x - _maxExtendX,
-                    _initialCameraPos.x + _maxExtendX);
-            }
-
-            float overflowY = Mathf.Abs(panY) - edgeZone;
-            if (overflowY > 0f)
-            {
-                _baseCameraPos.y += Mathf.Sign(panY) * overflowY * _edgeScrollSpeed * Time.deltaTime;
-                _baseCameraPos.y = Mathf.Clamp(_baseCameraPos.y,
-                    _initialCameraPos.y - _maxExtendY,
-                    _initialCameraPos.y + _maxExtendY);
-            }
-
-            Vector3 targetCamPos = _baseCameraPos + new Vector3(panX, panY, 0f);
-            targetCamPos.y = Mathf.Clamp(targetCamPos.y, _minCameraY, _maxCameraY);
-            _mainCamera.transform.position = Vector3.Lerp(
-                _mainCamera.transform.position, targetCamPos, _cameraFollowSpeed * Time.deltaTime);
+            _mainCamera.transform.position = new Vector3(targetX, targetY, _initialCameraPos.z);
 
             // Gun stays fixed relative to camera using local offset.
             // X = right/left, Y = up/down, Z = forward depth (all in camera-local space).
