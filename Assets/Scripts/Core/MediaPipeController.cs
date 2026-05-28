@@ -131,12 +131,11 @@ namespace ARcadeRush.Core
             // Log if detected
             // Debug.Log($"[MediaPipeController] Processing frame...");
 
-            Color32[] pixels = webCamTex.GetPixels32();
             int width  = webCamTex.width;
             int height = webCamTex.height;
- 
-            var pixelData = new Unity.Collections.NativeArray<byte>(pixels.Length * 4, Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < pixels.Length; i++)
+            int pixelCount = width * height;
+
+            if (_pixelBuffer == null || _pixelBuffer.Length != pixelCount)
             {
                 _pixelBuffer = new Color32[pixelCount];
                 if (_nativePixels.IsCreated) _nativePixels.Dispose();
