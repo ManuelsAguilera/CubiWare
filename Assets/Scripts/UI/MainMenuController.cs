@@ -62,7 +62,7 @@ namespace ARcadeRush.UI
 
             if (_startSimonBtn != null)
             {
-                // Simon placeholder — currently points to DummyTest scene
+                // Simón Dice — loaded via registry (registered in MiniGameRegistry)
                 _startSimonBtn.onClick.AddListener(() =>
                     LoadSceneByName("Simon"));
             }
