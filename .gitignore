@@ -76,3 +76,9 @@ $RECYCLE.BIN/
 # Project-specific ignores
 # ==============================
 .vsconfig
+
+# Visual Studio new solution format (auto-generated)
+*.slnx
+
+# Auto-generated package registry cache
+ProjectSettings/Packages/
