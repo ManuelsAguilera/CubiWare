@@ -99,6 +99,8 @@ namespace ARcadeRush.Face
         private float _bs_noseSneerR     = 0f;
         private float _bs_eyeSquintL     = 0f;
         private float _bs_eyeSquintR     = 0f;
+        private float _bs_browOuterUpL   = 0f;
+        private float _bs_browOuterUpR   = 0f;
         private bool  _hasBlendshapes    = false;
  
         // ─────────────────────────────────────────────────────────────────────────
@@ -215,9 +217,14 @@ namespace ARcadeRush.Face
             // BlinkAverage raw value — EMA-smoothed in Update(); used as explicit Surprised penalty.
             _rawBlink = _hasBlendshapes ? (_bs_eyeBlinkL + _bs_eyeBlinkR) * 0.5f : 0f;
  
-            // [3] Brow Raise
-            // browInnerUp is the clearest blendshape for surprise/sad brow lift.
-            float bs_brow = _hasBlendshapes ? _bs_browInnerUp : 0f;
+            // [3] Brow Raise — inner (40%) + outer (60%).
+            // browOuterUp dominates the visible arc of a surprised/scared brow lift.
+            float bs_browOuter = _hasBlendshapes
+                ? (_bs_browOuterUpL + _bs_browOuterUpR) * 0.5f
+                : 0f;
+            float bs_brow = _hasBlendshapes
+                ? _bs_browInnerUp * 0.40f + bs_browOuter * 0.60f
+                : 0f;
             _rawMetrics[3] = w * bs_brow + w2 * lm_browRaise;
  
             // [4] Smile Score — PRIMARY happy signal
@@ -277,6 +284,7 @@ namespace ARcadeRush.Face
             _bs_cheekSquintL = _bs_cheekSquintR = 0f;
             _bs_noseSneerL = _bs_noseSneerR = 0f;
             _bs_eyeSquintL = _bs_eyeSquintR = 0f;
+            _bs_browOuterUpL = _bs_browOuterUpR = 0f;
  
             foreach (var c in categories)
             {
@@ -303,6 +311,8 @@ namespace ARcadeRush.Face
                     case "noseSneerRight":    _bs_noseSneerR    = c.score; break;
                     case "eyeSquintLeft":     _bs_eyeSquintL    = c.score; break;
                     case "eyeSquintRight":    _bs_eyeSquintR    = c.score; break;
+                    case "browOuterUpLeft":   _bs_browOuterUpL  = c.score; break;
+                    case "browOuterUpRight":  _bs_browOuterUpR  = c.score; break;
                 }
             }
         }
@@ -321,6 +331,18 @@ namespace ARcadeRush.Face
         {
             if (!_calibrated || _neutralBaseline == null) return NormalizedMetrics[index];
             return NormalizedMetrics[index] - _neutralBaseline[index];
+        }
+
+        /// <summary>
+        /// Metric relative to baseline, scaled by baselineWeight.
+        /// 1.0 = full subtraction (default), 0.5 = subtract only half the baseline.
+        /// Use a value below 1.0 for positive-going metrics (smile, mouthOpen, browRaise)
+        /// so a person with a slight resting expression doesn't get penalised too hard.
+        /// </summary>
+        public float GetRelativeMetric(int index, float baselineWeight)
+        {
+            if (!_calibrated || _neutralBaseline == null) return NormalizedMetrics[index];
+            return NormalizedMetrics[index] - _neutralBaseline[index] * baselineWeight;
         }
  
         /// <summary>Force recalibration (e.g. at the start of each game round).</summary>

@@ -31,7 +31,7 @@ namespace ARcadeRush.Face
         // ── Inspector — Timing ────────────────────────────────────────────────────
         [Header("Timing")]
         [Tooltip("Seconds the winning emotion must remain dominant before it is confirmed.")]
-        [SerializeField] private float _holdSeconds = 0.15f;
+        [SerializeField] private float _holdSeconds = 0.10f;
         [Tooltip("Minimum head-pose confidence required to update the classifier.")]
         [Range(0f, 1f)]
         [SerializeField] private float _minHeadConfidence = 0.50f;
@@ -40,12 +40,12 @@ namespace ARcadeRush.Face
         [Header("Confidence Smoothing (EMA per emotion)")]
         [Tooltip("EMA factor for emotion confidence scores. Higher = slower but more stable.")]
         [Range(0f, 0.99f)]
-        [SerializeField] private float _confidenceEma = 0.55f;
+        [SerializeField] private float _confidenceEma = 0.25f;
  
         // ── Inspector — Happy ─────────────────────────────────────────────────────
         [Header("Happy — weights relative to neutral baseline")]
         [Tooltip("Smile score (mouthSmile + cheekSquint) weight — primary Happy driver.")]
-        [SerializeField] private float _happySmileWeight  = 3.0f;
+        [SerializeField] private float _happySmileWeight  = 5.0f;
         [Tooltip("Mouth opening contribution.")]
         [SerializeField] private float _happyMouthWeight  = 1.5f;
         [Tooltip("Furrow penalty — subtracts furrow * this value (can't smile while scowling).")]
@@ -53,13 +53,13 @@ namespace ARcadeRush.Face
 
         // ── Inspector — Surprised ─────────────────────────────────────────────────
         [Header("Surprised — weights")]
-        [SerializeField] private float _surpMouthWeight     = 3.0f;
+        [SerializeField] private float _surpMouthWeight     = 3.5f;
         [SerializeField] private float _surpEyeWeight       = 0.5f;
-        [SerializeField] private float _surpBrowRaiseWeight = 2.0f;
+        [SerializeField] private float _surpBrowRaiseWeight = 4.0f;
         [Tooltip("mouthFunnel (O-face shape) — replaces Pucker.")]
         [SerializeField] private float _surpFunnelWeight    = 2.0f;
         [Tooltip("Blink penalty — subtracts blinkAvg * this value; blinking suppresses Surprised.")]
-        [SerializeField] private float _surpBlinkPenalty    = 3.0f;
+        [SerializeField] private float _surpBlinkPenalty    = 1.5f;
 
         // ── Inspector — Angry ─────────────────────────────────────────────────────
         [Header("Angry — weights")]
@@ -74,7 +74,7 @@ namespace ARcadeRush.Face
  
         // ── Inspector — Neutral baseline offset ──────────────────────────────────
         [Header("Neutral — base confidence (opponent to all emotions)")]
-        [SerializeField] private float _neutralBaseScore = 0.75f;
+        [SerializeField] private float _neutralBaseScore = 0.40f;
         [Tooltip("Additional score added to the current emotion to prevent rapid flickering.")]
         [SerializeField] private float _hysteresis = 0.05f;
  
@@ -112,16 +112,18 @@ namespace ARcadeRush.Face
             }
  
             // ── Read metrics relative to calibrated neutral ────────────────────
-            // Using relative values removes a lot of person-to-person variance.
-            float mouthOpen  = _reader.GetRelativeMetric(0);
+            // Positive-going metrics (smile, mouthOpen, browRaise, funnel) use 0.5 baseline weight
+            // so a person with slight resting expression doesn't get penalised too hard.
+            // Negative-going metrics (furrow, frown, press, squint) use full subtraction.
+            float mouthOpen  = _reader.GetRelativeMetric(0, 0.5f);
             float eyeL       = _reader.GetRelativeMetric(1);
             float eyeR       = _reader.GetRelativeMetric(2);
-            float browRaise  = _reader.GetRelativeMetric(3);
-            float smile      = _reader.GetRelativeMetric(4);
+            float browRaise  = _reader.GetRelativeMetric(3, 0.5f);
+            float smile      = _reader.GetRelativeMetric(4, 0.5f);
             float furrow     = _reader.GetRelativeMetric(5);
             float trueFrown  = _reader.GetRelativeMetric(6);
             float mouthPress = _reader.GetRelativeMetric(7);
-            float funnel     = _reader.GetRelativeMetric(8);
+            float funnel     = _reader.GetRelativeMetric(8, 0.5f);
             float squint     = _reader.GetRelativeMetric(9);
 
             float eyeAvg     = (eyeL + eyeR) * 0.5f;
@@ -201,7 +203,7 @@ namespace ARcadeRush.Face
                 //          $"(smile={smile:F3} mouth={mouthOpen:F3} brow={browRaise:F3} furrow={furrow:F3})");
             }
 
-            //Debug.Log($"[Scores] N:{_confidence[0]:F3} H:{_confidence[1]:F3} S:{_confidence[2]:F3} A:{_confidence[3]:F3} | Head:{_reader.HeadConfidence:F2}");           
+            Debug.Log($"[Scores] N:{_confidence[0]:F3} H:{_confidence[1]:F3} S:{_confidence[2]:F3} A:{_confidence[3]:F3} | Head:{_reader.HeadConfidence:F2}");
 
         }
  
@@ -211,6 +213,10 @@ namespace ARcadeRush.Face
  
         /// <summary>The last confirmed emotion.</summary>
         public EmotionLabel CurrentEmotion => _currentEmotion;
+
+        /// <summary>Live smoothed confidence scores — use the Console log or a debug UI to tune weights.</summary>
+        public (float neutral, float happy, float surprised, float angry) DebugScores =>
+            (_confidence[0], _confidence[1], _confidence[2], _confidence[3]);
 
         /// <summary>Confidence for a specific emotion in [0..∞] (relative scores, not normalised).</summary>
         public float GetConfidence(EmotionLabel emotion) => _confidence[(int)emotion];
