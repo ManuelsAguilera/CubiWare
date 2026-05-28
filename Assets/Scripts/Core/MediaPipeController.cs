@@ -46,6 +46,10 @@ namespace ARcadeRush.Core
         private bool _isReady = false;
         private long _currentTimestampMs = 0;
         private int _handsLostFrames = 0;
+
+        // Persistent pixel buffers — allocated once on first use, reused every frame to eliminate GC pressure.
+        private Color32[] _pixelBuffer;
+        private Unity.Collections.NativeArray<byte> _nativePixels;
  
         private readonly ConcurrentQueue<PendingHandOutcome> _handOutcomeQueue = new ConcurrentQueue<PendingHandOutcome>();
  
@@ -65,33 +69,8 @@ namespace ARcadeRush.Core
             Instance = this;
             DontDestroyOnLoad(transform.root.gameObject);
 
-            // Initialize the service-layer providers
             _handService = new HandDetectorService();
             _faceService = new FaceDetectorService();
-
-            // Wire service events to re-fire through the existing controller events
-            // for backward compatibility
-            _handService.OnHandDetected += data =>
-            {
-                // The controller still uses NormalizedLandmarks events, so we
-                // keep the existing pipeline intact. Service events can be consumed
-                // directly via IHandDetector/IFaceDetector interfaces.
-            };
-
-            _handService.OnHandLost += () =>
-            {
-                // Service-level hand-lost tracking; existing pipeline also handles this
-            };
-
-            _faceService.OnFaceDetected += data =>
-            {
-                // Service-level face detection; existing pipeline also handles this
-            };
-
-            _faceService.OnFaceLost += () =>
-            {
-                // Service-level face-lost tracking
-            };
         }
  
         private async void Start()
@@ -159,28 +138,33 @@ namespace ARcadeRush.Core
             var pixelData = new Unity.Collections.NativeArray<byte>(pixels.Length * 4, Unity.Collections.Allocator.Temp);
             for (int i = 0; i < pixels.Length; i++)
             {
-                pixelData[i * 4]     = pixels[i].r;
-                pixelData[i * 4 + 1] = pixels[i].g;
-                pixelData[i * 4 + 2] = pixels[i].b;
-                pixelData[i * 4 + 3] = pixels[i].a;
+                _pixelBuffer = new Color32[pixelCount];
+                if (_nativePixels.IsCreated) _nativePixels.Dispose();
+                _nativePixels = new Unity.Collections.NativeArray<byte>(pixelCount * 4, Unity.Collections.Allocator.Persistent);
             }
- 
+
+            // Fill the cached Color32 array in-place — no managed allocation.
+            webCamTex.GetPixels32(_pixelBuffer);
+            for (int i = 0; i < pixelCount; i++)
+            {
+                _nativePixels[i * 4]     = _pixelBuffer[i].r;
+                _nativePixels[i * 4 + 1] = _pixelBuffer[i].g;
+                _nativePixels[i * 4 + 2] = _pixelBuffer[i].b;
+                _nativePixels[i * 4 + 3] = _pixelBuffer[i].a;
+            }
+
             long newTimestamp = (long)(Time.realtimeSinceStartup * 1000);
             if (newTimestamp <= _currentTimestampMs)
                 newTimestamp = _currentTimestampMs + 1;
             _currentTimestampMs = newTimestamp;
- 
-            using (var mpImage = new Mediapipe.Image(Mediapipe.ImageFormat.Types.Format.Srgba, width, height, width * 4, pixelData))
-            {
+
+            // Each detector needs its own Image wrapper — DetectAsync transfers native pointer ownership,
+            // disposing the wrapper as a side effect. Both wrap the same _nativePixels buffer.
+            using (var mpImage = new Mediapipe.Image(Mediapipe.ImageFormat.Types.Format.Srgba, width, height, width * 4, _nativePixels))
                 _handLandmarker.DetectAsync(mpImage, _currentTimestampMs);
-            }
- 
-            using (var mpImage2 = new Mediapipe.Image(Mediapipe.ImageFormat.Types.Format.Srgba, width, height, width * 4, pixelData))
-            {
-                _faceLandmarker.DetectAsync(mpImage2, _currentTimestampMs);
-            }
- 
-            pixelData.Dispose();
+
+            using (var mpImage = new Mediapipe.Image(Mediapipe.ImageFormat.Types.Format.Srgba, width, height, width * 4, _nativePixels))
+                _faceLandmarker.DetectAsync(mpImage, _currentTimestampMs);
         }
  
         // Sin cambios — manos siguen igual
@@ -204,17 +188,21 @@ namespace ARcadeRush.Core
 
  
         // ── CAMBIO 3: encolar el FaceLandmarkerResult completo ───────────────
-        // Antes: clonaba solo los NormalizedLandmarks y descartaba blendshapes
-        // Ahora: encola el result entero — landmarks + blendshapes disponibles
-        //
-        // Nota sobre thread-safety: FaceLandmarkerResult es un struct que contiene
-        // referencias a listas internas de MediaPipe. El callback se llama desde un
-        // hilo de MediaPipe; no modifiques ni liberes el result fuera de aquí.
-        // FlushPendingMediapipeResults() lo consume en el hilo principal (Update).
+        // Ahora: se clona el resultado para evitar que MediaPipe reutilice la memoria
+        // de las listas internas (landmarks/blendshapes) antes de ser procesado en Update.
         private void OnFaceLandmarksCallback(FaceLandmarkerResult result, Mediapipe.Image image, long timestamp)
         {
             if (result.faceLandmarks == null || result.faceLandmarks.Count == 0) return;
-            _faceOutcomeQueue.Enqueue(result);
+
+            // Clonado profundo necesario para thread-safety
+            var faceCopy = FaceLandmarkerResult.Alloc(
+                result.faceLandmarks.Count, 
+                result.faceBlendshapes != null && result.faceBlendshapes.Count > 0,
+                result.facialTransformationMatrixes != null && result.facialTransformationMatrixes.Count > 0
+            );
+            result.CloneTo(ref faceCopy);
+            
+            _faceOutcomeQueue.Enqueue(faceCopy);
         }
  
         private void FlushPendingMediapipeResults()
@@ -234,17 +222,23 @@ namespace ARcadeRush.Core
                 }
             }
  
-            // ── CAMBIO 4: dequeue y dispatch del resultado completo ──────────
-            while (_faceOutcomeQueue.TryDequeue(out FaceLandmarkerResult faceResult))
+            // Only the most recent face result matters — drop any backlog built up during frame-rate dips.
+            bool hasFaceResult = false;
+            FaceLandmarkerResult latestFaceResult = default;
+            while (_faceOutcomeQueue.TryDequeue(out FaceLandmarkerResult fr))
             {
-                OnFaceDetected?.Invoke(faceResult);
+                latestFaceResult = fr;
+                hasFaceResult = true;
             }
+            if (hasFaceResult)
+                OnFaceDetected?.Invoke(latestFaceResult);
         }
  
         private void OnDestroy()
         {
             if (_handLandmarker != null) _handLandmarker.Close();
             if (_faceLandmarker != null) _faceLandmarker.Close();
+            if (_nativePixels.IsCreated) _nativePixels.Dispose();
  
             // Shutdown service-layer providers
             if (_handService != null)

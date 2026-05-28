@@ -183,10 +183,15 @@ namespace ARcadeRush.Core
             var deps = new MiniGameDependencies
             {
                 GameManager = this,
-                Camera = CameraFeedCtrl.Instance,
+                Camera = CameraFeedCtrl.Instance ?? FindFirstObjectByType<CameraFeedCtrl>(),
                 MediaPipe = MediaPipeController.Instance,
                 LLM = LLMConnector.Instance,
             };
+
+            _logger.LogInfo("GameManager", 
+                $"StartGame: Camera={deps.Camera != null}, " +
+                $"MediaPipe={deps.MediaPipe != null}, " +
+                $"LLM={deps.LLM != null}");
 
             game.OnStart(deps);
 
