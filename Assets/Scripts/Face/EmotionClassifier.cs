@@ -301,6 +301,15 @@ namespace ARcadeRush.Face
             _currentEmotion   = EmotionLabel.Neutral;
             _candidateEmotion = EmotionLabel.Neutral;
             _candidateHoldTime = 0f;
+
+            _dbgSmile = _dbgMouthHappy = _dbgFurrowPenH = _dbgRawHappy = _dbgConfHappy = 0f;
+            _dbgIsHappy = false;
+            _dbgMouthSurp = _dbgEyeAvg = _dbgBrowRaise = _dbgFunnel = _dbgBlinkPen = _dbgRawSurp = _dbgConfSurp = 0f;
+            _dbgIsSurprised = false;
+            _dbgFurrow = _dbgBrowLow = _dbgSquint = _dbgTrueFrown = _dbgMouthPress = _dbgSmilePenA = _dbgRawAngry = _dbgConfAngry = 0f;
+            _dbgIsAngry = false;
+            _dbgRawNeutral = _dbgConfNeutral = 0f;
+            _dbgIsNeutral = true;
         }
  
         #endregion
