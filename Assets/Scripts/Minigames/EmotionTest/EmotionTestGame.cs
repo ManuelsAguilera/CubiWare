@@ -32,24 +32,22 @@ namespace ARcadeRush.Minigames.EmotionTest
         private bool _isPlaying = false;
         private bool _emotionModuleActive = false;
         private bool _uiSetup = false;
+        private bool _displayInitialized = false;
 
         public void OnStart(MiniGameDependencies deps)
         {
             _deps = deps;
-            
+
             _isPlaying = true;
 
             ServiceLogger.Instance.LogInfo(LogServiceName, "Starting Emotion Debug Scene");
 
-            // Setup Camera
             SetupCamera();
-
-            // Setup UI
             SetupUI();
 
-            // Setup Emotion Debug Display
-            if (_emotionDebugDisplay != null)
+            if (_emotionDebugDisplay != null && !_displayInitialized)
             {
+                _displayInitialized = true;
                 _emotionDebugDisplay.Initialize(_deps);
                 _emotionDebugDisplay.EnableModule(false);
                 _emotionModuleActive = false;

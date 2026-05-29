@@ -162,7 +162,7 @@ namespace ARcadeRush.Face
         {
             if (result.faceLandmarks == null || result.faceLandmarks.Count == 0) return;
             var lm = result.faceLandmarks[0].landmarks;
-            if (lm == null || lm.Count < 400) return;
+            if (lm == null || lm.Count < 468) return;
  
             // ── 1. Extract blendshapes (if available) ─────────────────────────
             _hasBlendshapes = result.faceBlendshapes != null && result.faceBlendshapes.Count > 0;
@@ -343,6 +343,21 @@ namespace ARcadeRush.Face
         {
             if (!_calibrated || _neutralBaseline == null) return NormalizedMetrics[index];
             return NormalizedMetrics[index] - _neutralBaseline[index] * baselineWeight;
+        }
+
+        /// <summary>
+        /// Returns NormalizedMetrics[index] / neutralBaseline[index].
+        /// A value of 1.0 = exactly at neutral; 2.0 = twice the neutral level.
+        /// Person-independent: the same ratio threshold works for anyone regardless
+        /// of their resting expression amplitude.
+        /// Returns raw metric when uncalibrated or when baseline is near zero.
+        /// </summary>
+        public float GetRatioMetric(int index)
+        {
+            if (!_calibrated || _neutralBaseline == null) return NormalizedMetrics[index];
+            float baseline = _neutralBaseline[index];
+            if (baseline < 0.01f) return NormalizedMetrics[index];
+            return NormalizedMetrics[index] / baseline;
         }
  
         /// <summary>Force recalibration (e.g. at the start of each game round).</summary>

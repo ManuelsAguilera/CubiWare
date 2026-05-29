@@ -122,16 +122,16 @@ namespace ARcadeRush.Minigames.EmotionTest
                 float[] raw = _faceLandmarkReader.NormalizedMetrics;
                 if (raw != null && raw.Length >= 10)
                 {
-                    _sb.Append("\nMetrics (Raw EMA | Relative to Baseline):\n");
-                    AppendMetric("Mouth Open", raw[0], _faceLandmarkReader.GetRelativeMetric(0));
-                    AppendMetric("Smile     ", raw[4], _faceLandmarkReader.GetRelativeMetric(4));
+                    _sb.Append("\nMetrics (Raw EMA | As-used by Classifier):\n");
+                    AppendMetric("Mouth Open", raw[0], _faceLandmarkReader.GetRelativeMetric(0, 0.5f));
+                    AppendMetric("Smile ratio",raw[4], _faceLandmarkReader.GetRatioMetric(4));
                     AppendMetric("Eye L     ", raw[1], _faceLandmarkReader.GetRelativeMetric(1));
                     AppendMetric("Eye R     ", raw[2], _faceLandmarkReader.GetRelativeMetric(2));
-                    AppendMetric("Brow Raise", raw[3], _faceLandmarkReader.GetRelativeMetric(3));
+                    AppendMetric("Brow Raise", raw[3], _faceLandmarkReader.GetRelativeMetric(3, 0.5f));
                     AppendMetric("Furrow    ", raw[5], _faceLandmarkReader.GetRelativeMetric(5));
                     AppendMetric("Frown (n) ", raw[6], _faceLandmarkReader.GetRelativeMetric(6));
                     AppendMetric("Press     ", raw[7], _faceLandmarkReader.GetRelativeMetric(7));
-                    AppendMetric("Funnel (O)", raw[8], _faceLandmarkReader.GetRelativeMetric(8));
+                    AppendMetric("Funnel (O)", raw[8], _faceLandmarkReader.GetRelativeMetric(8, 0.5f));
                     AppendMetric("Squint    ", raw[9], _faceLandmarkReader.GetRelativeMetric(9));
                     AppendMetric("Blink avg ", _faceLandmarkReader.BlinkAverage, 0f);
 

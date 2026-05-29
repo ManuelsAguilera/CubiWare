@@ -399,12 +399,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _isEnabled: 0
-  _holdSeconds: 0.1
+  _holdSeconds: 0.02
   _minHeadConfidence: 0.5
-  _confidenceEma: 0.3
-  _happySmileWeight: 4
+  _confidenceEma: 0.15
+  _happySmileWeight: 5
   _happyMouthWeight: 1.5
-  _happyMouthPenalty: 1.3
+  _happyMouthPenalty: 2
   _surpMouthWeight: 2
   _surpEyeWeight: 1.5
   _surpBrowRaiseWeight: 4
@@ -416,8 +416,34 @@ MonoBehaviour:
   _angryFrownWeight: 1.5
   _angryPressWeight: 1.25
   _angrySmilePenalty: 4
-  _neutralBaseScore: 0.15
-  _hysteresis: 0.05
+  _neutralBaseScore: 0.4
+  _hysteresis: 0
+  _dbgSmile: 0
+  _dbgMouthHappy: 0
+  _dbgFurrowPenH: 0
+  _dbgRawHappy: 0
+  _dbgConfHappy: 0
+  _dbgIsHappy: 0
+  _dbgMouthSurp: 0
+  _dbgEyeAvg: 0
+  _dbgBrowRaise: 0
+  _dbgFunnel: 0
+  _dbgBlinkPen: 0
+  _dbgRawSurp: 0
+  _dbgConfSurp: 0
+  _dbgIsSurprised: 0
+  _dbgFurrow: 0
+  _dbgBrowLow: 0
+  _dbgSquint: 0
+  _dbgTrueFrown: 0
+  _dbgMouthPress: 0
+  _dbgSmilePenA: 0
+  _dbgRawAngry: 0
+  _dbgConfAngry: 0
+  _dbgIsAngry: 0
+  _dbgRawNeutral: 0
+  _dbgConfNeutral: 0
+  _dbgIsNeutral: 0
 --- !u!114 &259732453
 MonoBehaviour:
   m_ObjectHideFlags: 0
