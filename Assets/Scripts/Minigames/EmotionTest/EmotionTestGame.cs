@@ -24,9 +24,6 @@ namespace ARcadeRush.Minigames.EmotionTest
         [SerializeField] private UnityEngine.UI.Button _resetBtn;
         [SerializeField] private UnityEngine.UI.Button _exitBtn;
 
-        [Header("Settings")]
-        [SerializeField] private int _mainMenuSceneIndex = 1;
-
         /// <summary>Must match MG_EmotionTest in Build Settings</summary>
         public int SceneIndex => 4;
 
@@ -64,15 +61,12 @@ namespace ARcadeRush.Minigames.EmotionTest
 
             ServiceLogger.Instance.LogInfo(LogServiceName, "Exiting Emotion Debug Scene");
 
-            if (_deps?.GameManager != null)
-            {
-                _deps.GameManager.EndGame();
-            }
+            _deps?.GameManager?.EndGame();
 
-            if (SceneLoader.Instance != null)
-            {
-                SceneLoader.Instance.LoadSceneDelayed(_mainMenuSceneIndex, 0.5f);
-            }
+            // Tell MainMenu to open the GameSelector panel directly instead of the main panel.
+            UnityEngine.PlayerPrefs.SetInt("ReturnToGameSelector", 1);
+
+            SceneLoader.Instance?.LoadSceneAsync("MainMenu");
         }
 
         private void SetupCamera()
@@ -193,14 +187,23 @@ namespace ARcadeRush.Minigames.EmotionTest
 
         private void Start()
         {
-            if (GameManager.Instance != null)
+            if (GameManager.Instance == null)
             {
-                ServiceLogger.Instance.LogInfo(LogServiceName, "Registering with GameManager...");
-                GameManager.Instance.StartGame(this);
+                ServiceLogger.Instance.LogError(LogServiceName, "GameManager not found! Start from Bootstrap scene.", ServiceErrorCode.NotInitialized);
+                return;
+            }
+
+            if (_deps != null)
+            {
+                // SceneLoader already called OnStart() — just register ownership without re-running setup.
+                // Calling StartGame() here would invoke OnStart() a second time, doubling button listeners
+                // and making toggle buttons cancel themselves on each click.
+                GameManager.Instance.RegisterGame(this);
             }
             else
             {
-                ServiceLogger.Instance.LogError(LogServiceName, "GameManager not found! Start from Bootstrap scene.", ServiceErrorCode.NotInitialized);
+                // Direct scene entry without SceneLoader (e.g. Editor Play from this scene).
+                GameManager.Instance.StartGame(this);
             }
         }
 

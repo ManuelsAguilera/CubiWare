@@ -39,6 +39,13 @@ namespace ARcadeRush.UI
                 $"Test2={_startTest2Btn != null}, " +
                 $"Director={_startDirectorBtn != null}");
 
+            // If we returned from a minigame (via OnEnd), skip the main panel and go straight to GameSelector.
+            if (PlayerPrefs.GetInt("ReturnToGameSelector", 0) == 1)
+            {
+                PlayerPrefs.DeleteKey("ReturnToGameSelector");
+                ShowGameSelector();
+            }
+
             if (_startTestingSceneBtn != null)
             {
                 // DummyTest — optional testing scene for rapid iteration
