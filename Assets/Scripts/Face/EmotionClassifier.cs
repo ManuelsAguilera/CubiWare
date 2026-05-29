@@ -77,7 +77,42 @@ namespace ARcadeRush.Face
         [SerializeField] private float _neutralBaseScore = 0.40f;
         [Tooltip("Additional score added to the current emotion to prevent rapid flickering.")]
         [SerializeField] private float _hysteresis = 0.05f;
- 
+
+        // ── Inspector — Live debug (actualizado cada frame en Play Mode) ──────────
+        [Header("Live — Happy")]
+        [SerializeField] private float _dbgSmile;
+        [SerializeField] private float _dbgMouthHappy;
+        [SerializeField] private float _dbgFurrowPenH;
+        [SerializeField] private float _dbgRawHappy;
+        [SerializeField] private float _dbgConfHappy;
+        [SerializeField] private bool  _dbgIsHappy;
+
+        [Header("Live — Surprised")]
+        [SerializeField] private float _dbgMouthSurp;
+        [SerializeField] private float _dbgEyeAvg;
+        [SerializeField] private float _dbgBrowRaise;
+        [SerializeField] private float _dbgFunnel;
+        [SerializeField] private float _dbgBlinkPen;
+        [SerializeField] private float _dbgRawSurp;
+        [SerializeField] private float _dbgConfSurp;
+        [SerializeField] private bool  _dbgIsSurprised;
+
+        [Header("Live — Angry")]
+        [SerializeField] private float _dbgFurrow;
+        [SerializeField] private float _dbgBrowLow;
+        [SerializeField] private float _dbgSquint;
+        [SerializeField] private float _dbgTrueFrown;
+        [SerializeField] private float _dbgMouthPress;
+        [SerializeField] private float _dbgSmilePenA;
+        [SerializeField] private float _dbgRawAngry;
+        [SerializeField] private float _dbgConfAngry;
+        [SerializeField] private bool  _dbgIsAngry;
+
+        [Header("Live — Neutral")]
+        [SerializeField] private float _dbgRawNeutral;
+        [SerializeField] private float _dbgConfNeutral;
+        [SerializeField] private bool  _dbgIsNeutral;
+
         // ── Private state ─────────────────────────────────────────────────────────
         private FaceLandmarkReader _reader;
  
@@ -205,6 +240,36 @@ namespace ARcadeRush.Face
 
             Debug.Log($"[Scores] N:{_confidence[0]:F3} H:{_confidence[1]:F3} S:{_confidence[2]:F3} A:{_confidence[3]:F3} | Head:{_reader.HeadConfidence:F2}");
 
+            // ── Live debug fields (visible in Inspector during Play Mode) ─────────
+            _dbgSmile       = smile;
+            _dbgMouthHappy  = mouthOpen;
+            _dbgFurrowPenH  = furrow;
+            _dbgRawHappy    = rawHappy;
+            _dbgConfHappy   = _confidence[(int)EmotionLabel.Happy];
+            _dbgIsHappy     = _currentEmotion == EmotionLabel.Happy;
+
+            _dbgMouthSurp   = mouthOpen;
+            _dbgEyeAvg      = eyeAvg;
+            _dbgBrowRaise   = browRaise;
+            _dbgFunnel      = funnel;
+            _dbgBlinkPen    = _reader.BlinkAverage;
+            _dbgRawSurp     = rawSurp;
+            _dbgConfSurp    = _confidence[(int)EmotionLabel.Surprised];
+            _dbgIsSurprised = _currentEmotion == EmotionLabel.Surprised;
+
+            _dbgFurrow      = furrow;
+            _dbgBrowLow     = Mathf.Max(0f, -browRaise);
+            _dbgSquint      = squint;
+            _dbgTrueFrown   = trueFrown;
+            _dbgMouthPress  = mouthPress;
+            _dbgSmilePenA   = smile;
+            _dbgRawAngry    = rawAngry;
+            _dbgConfAngry   = _confidence[(int)EmotionLabel.Angry];
+            _dbgIsAngry     = _currentEmotion == EmotionLabel.Angry;
+
+            _dbgRawNeutral  = rawNeutral;
+            _dbgConfNeutral = _confidence[(int)EmotionLabel.Neutral];
+            _dbgIsNeutral   = _currentEmotion == EmotionLabel.Neutral;
         }
  
         #endregion

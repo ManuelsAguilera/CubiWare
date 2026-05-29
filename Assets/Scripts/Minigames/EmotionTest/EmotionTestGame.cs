@@ -31,6 +31,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         private MiniGameDependencies _deps;
         private bool _isPlaying = false;
         private bool _emotionModuleActive = false;
+        private bool _uiSetup = false;
 
         public void OnStart(MiniGameDependencies deps)
         {
@@ -109,20 +110,15 @@ namespace ARcadeRush.Minigames.EmotionTest
 
         private void SetupUI()
         {
+            if (_uiSetup) return;
+            _uiSetup = true;
+
             if (_toggleEmotionBtn != null)
-            {
                 _toggleEmotionBtn.onClick.AddListener(OnToggleEmotion);
-            }
-
             if (_resetBtn != null)
-            {
                 _resetBtn.onClick.AddListener(OnReset);
-            }
-
             if (_exitBtn != null)
-            {
                 _exitBtn.onClick.AddListener(OnExit);
-            }
         }
 
         private void OnToggleEmotion()
