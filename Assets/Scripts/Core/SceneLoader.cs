@@ -96,10 +96,11 @@ namespace ARcadeRush.Core
             {
                 var deps = new MiniGameDependencies
                 {
-                    GameManager = GameManager.Instance,
-                    Camera = CameraFeedCtrl.Instance,
-                    MediaPipe = MediaPipeController.Instance,
-                    LLM = LLMConnector.Instance
+                    GameManager   = GameManager.Instance,
+                    Camera        = CameraFeedCtrl.Instance,
+                    MediaPipe     = MediaPipeController.Instance,
+                    LLM           = LLMConnector.Instance,
+                    EmotionBridge = ARcadeRush.EmotionDetection.EmotionGameBridge.Instance,
                 };
 
                 _logger.LogInfo("SceneLoader", $"Found IMiniGame '{miniGame.GetType().Name}' — calling OnStart(deps).");

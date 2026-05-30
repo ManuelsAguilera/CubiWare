@@ -1,3 +1,5 @@
+using ARcadeRush.EmotionDetection;
+
 namespace ARcadeRush.Core
 {
     public class MiniGameDependencies
@@ -6,6 +8,7 @@ namespace ARcadeRush.Core
         public CameraFeedCtrl Camera;
         public MediaPipeController MediaPipe;
         public LLMConnector LLM;
+        public EmotionGameBridge EmotionBridge;
     }
 
     public interface IMiniGame

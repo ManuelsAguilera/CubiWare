@@ -134,7 +134,19 @@ namespace CubiWare.Core
 
             yield return null;
 
-            // ── Step 9-10: Mark as Initialized ─────────────────────────────
+            // ── Step 9: EmotionGameBridge ──────────────────────────────────
+            {
+                var go = new GameObject("EmotionGameBridge");
+                DontDestroyOnLoad(go);
+                var bridge = go.AddComponent<ARcadeRush.EmotionDetection.EmotionGameBridge>();
+                var client = go.AddComponent<ARcadeRush.EmotionDetection.EmotionWebSocketClient>();
+                bridge.Initialize(client);
+                _logger.LogInfo("BootstrapManager", "EmotionGameBridge initialized.");
+            }
+
+            yield return null;
+
+            // ── Step 10: Mark as Initialized ──────────────────────────────
             State = BootstrapState.Initialized;
             _logger.LogInfo("BootstrapManager", "Bootstrap complete — State=Initialized");
 

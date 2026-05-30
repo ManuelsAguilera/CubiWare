@@ -182,16 +182,18 @@ namespace ARcadeRush.Core
             
             var deps = new MiniGameDependencies
             {
-                GameManager = this,
-                Camera = CameraFeedCtrl.Instance ?? FindFirstObjectByType<CameraFeedCtrl>(),
-                MediaPipe = MediaPipeController.Instance,
-                LLM = LLMConnector.Instance,
+                GameManager   = this,
+                Camera        = CameraFeedCtrl.Instance ?? FindFirstObjectByType<CameraFeedCtrl>(),
+                MediaPipe     = MediaPipeController.Instance,
+                LLM           = LLMConnector.Instance,
+                EmotionBridge = ARcadeRush.EmotionDetection.EmotionGameBridge.Instance,
             };
 
-            _logger.LogInfo("GameManager", 
+            _logger.LogInfo("GameManager",
                 $"StartGame: Camera={deps.Camera != null}, " +
                 $"MediaPipe={deps.MediaPipe != null}, " +
-                $"LLM={deps.LLM != null}");
+                $"LLM={deps.LLM != null}, " +
+                $"EmotionBridge={deps.EmotionBridge != null}");
 
             game.OnStart(deps);
 
