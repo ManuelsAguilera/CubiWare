@@ -78,7 +78,10 @@ namespace ARcadeRush.EmotionDetection
         public bool         IsWindowOpen    { get; private set; }
         public bool         IsEnabled       { get; private set; } = true;
 
-        // Raw scores from the last message (all 7 emotions)
+        /// <summary>Raw data from the last server message (all 7 scores, timestamp, face_detected).</summary>
+        public EmotionData  LatestData      { get; private set; }
+
+        // backing field kept in sync with the public property
         private EmotionData _latestData;
 
         // ── Events ────────────────────────────────────────────────────────────
@@ -209,6 +212,7 @@ namespace ARcadeRush.EmotionDetection
             if (!IsEnabled) return;
 
             _latestData  = data;
+            LatestData   = data;
             FaceDetected = data.face_detected;
             Confidence   = data.confidence;
 
