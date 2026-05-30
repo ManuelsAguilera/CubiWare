@@ -38,7 +38,7 @@ namespace CubiWare.Core
         private void Awake()
         {
             // Discover the IMiniGame in the scene
-            _miniGame = FindFirstObjectByType<MonoBehaviour>() as IMiniGame;
+            _miniGame = FindAnyObjectByType<MonoBehaviour>() as IMiniGame;
             if (_miniGame != null)
             {
                 _logger.LogInfo("MiniGameManager", $"Discovered IMiniGame: {_miniGame.GetType().Name}");

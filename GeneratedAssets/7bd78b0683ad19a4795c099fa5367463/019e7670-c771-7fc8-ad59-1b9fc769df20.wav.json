@@ -1,0 +1,15 @@
+{
+    "asset": "7bd78b0683ad19a4795c099fa5367463",
+    "fileName": "019e7670-c771-7fc8-ad59-1b9fc769df20.wav",
+    "prompt": "Soft fabric whoosh of a theater curtain closing.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

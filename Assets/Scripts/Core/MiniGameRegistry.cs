@@ -34,7 +34,8 @@ namespace CubiWare.Core
             { "FruitNinja", "Assets/Scenes/FruitNinja.unity" },
             { "EmotionTest", "Assets/Scenes/EmotionTest.unity" },
             { "Simon", "Assets/Scenes/Simon.unity" },
-            { "MainMenuNinjaFruit", "Assets/Scenes/MainMenuNinjaFruit.unity" }
+            { "MainMenuNinjaFruit", "Assets/Scenes/MainMenuNinjaFruit.unity" },
+            { "Director", "Assets/Scenes/Director.unity" }
         };
 
         private static readonly ServiceLogger _logger = ServiceLogger.Instance;
@@ -53,6 +54,7 @@ namespace CubiWare.Core
             TryRegister("FruitNinja", null);        // Placeholder — no implementation yet
             TryRegister("EmotionTest", null);        // Placeholder — no implementation yet
             TryRegister("Simon", "ARcadeRush.Minigames.Simon.SimonGame");
+            TryRegister("Director", "ARcadeRush.Minigames.SceneDirector.SceneDirectorGame");
 
             _logger.LogInfo("MiniGameRegistry", $"Auto-registration complete. {_registry.Count} minigames registered.");
         }

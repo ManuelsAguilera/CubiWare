@@ -53,7 +53,12 @@ namespace ARcadeRush.Minigames.SceneDirector
         private void Awake()
         {
             if (_reader == null)
-                _reader = FindFirstObjectByType<FaceLandmarkReader>();
+                _reader = FindAnyObjectByType<FaceLandmarkReader>();
+
+            // Validate Stage Camera setup early — missing RenderTexture is a silent failure
+            if (_stageCamera != null && _stageCamera.targetTexture == null)
+                ServiceLogger.Instance.LogWarning(LogServiceName,
+                    "Stage Camera has no Target Texture assigned. Masks will not be visible.");
         }
 
         private void Update()

@@ -40,8 +40,8 @@ namespace ARcadeRush.Minigames.EmotionTest
             _deps = deps;
             _emotionHistory = new string[_historySize];
 
-            _emotionClassifier = FindFirstObjectByType<EmotionClassifier>();
-            _faceLandmarkReader = FindFirstObjectByType<FaceLandmarkReader>();
+            _emotionClassifier = FindAnyObjectByType<EmotionClassifier>();
+            _faceLandmarkReader = FindAnyObjectByType<FaceLandmarkReader>();
 
             if (_emotionClassifier != null)
             {

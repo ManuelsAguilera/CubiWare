@@ -59,7 +59,7 @@ namespace ARcadeRush.UI
             ApplyMirroring(mirrored);
             
             // Sync with hand tracker
-            var tracker = FindFirstObjectByType<ARcadeRush.Hand.HandPositionTracker>();
+            var tracker = FindAnyObjectByType<ARcadeRush.Hand.HandPositionTracker>();
             if (tracker != null) tracker.IsMirrored = mirrored;
         }
 

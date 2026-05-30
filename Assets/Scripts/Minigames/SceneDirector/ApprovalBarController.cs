@@ -52,6 +52,9 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private float _fillRate  = 0.35f;
         [Tooltip("How fast the bar drains when the player shows the wrong or neutral emotion.")]
         [SerializeField] private float _drainRate = 0.20f;
+        [Tooltip("Initial fill amount when bar activates (head start so minor drift doesn't immediately drain).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _initialFillAmount = 0.15f;
         [Tooltip("Bar value at which the color begins shifting from normal to warning.")]
         [Range(0f, 1f)]
         [SerializeField] private float _warningThreshold = 0.30f;
@@ -116,7 +119,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         public void Activate(EmotionLabel required)
         {
             _required   = required;
-            _fillAmount = 0f;
+            _fillAmount = _initialFillAmount;
             _active     = true;
             RefreshUI();
             ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}");

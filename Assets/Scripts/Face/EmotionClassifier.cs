@@ -87,6 +87,13 @@ namespace ARcadeRush.Face
         private EmotionLabel _currentEmotion   = EmotionLabel.Neutral;
         private EmotionLabel _candidateEmotion = EmotionLabel.Neutral;
         private float        _candidateHoldTime = 0f;
+
+        /// <summary>
+        /// The winning emotion THIS FRAME, before temporal hold and hysteresis.
+        /// Used for continuous UI feedback (approval bar) while OnEmotionChanged
+        /// drives discrete state changes (mask swap).
+        /// </summary>
+        public EmotionLabel RawTopEmotion { get; private set; } = EmotionLabel.Neutral;
  
         #region Unity lifecycle
  
@@ -179,6 +186,9 @@ namespace ARcadeRush.Face
                     detected  = (EmotionLabel)i;
                 }
             }
+
+            // Store raw top emotion BEFORE hold logic — used by ApprovalBar for responsive feedback
+            RawTopEmotion = detected;
  
             // ── Temporal hold: candidate must stay dominant for _holdSeconds ───
             if (detected == _candidateEmotion)

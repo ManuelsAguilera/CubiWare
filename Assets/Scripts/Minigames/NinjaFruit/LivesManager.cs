@@ -14,7 +14,7 @@ public class LivesManager : MonoBehaviour
 
     void Awake()
     {
-        gameManager = FindFirstObjectByType<GameManagerFruit>();
+        gameManager = FindAnyObjectByType<GameManagerFruit>();
     }
 
     void Start()
@@ -29,7 +29,7 @@ public class LivesManager : MonoBehaviour
 
         // Buscar de nuevo por si acaso
         if (gameManager == null)
-            gameManager = FindFirstObjectByType<GameManagerFruit>();
+            gameManager = FindAnyObjectByType<GameManagerFruit>();
 
         vidasActuales--;
         ActualizarIconos();

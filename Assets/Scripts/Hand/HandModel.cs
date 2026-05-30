@@ -41,7 +41,7 @@ namespace ARcadeRush.Hand
             _mainCamera = Camera.main;
 
             // Resolve IHandDetector
-            _handDetector = FindFirstObjectByType<MonoBehaviour>() as IHandDetector;
+            _handDetector = FindAnyObjectByType<MonoBehaviour>() as IHandDetector;
             if (_handDetector == null && MediaPipeController.Instance != null)
             {
                 _handDetector = MediaPipeController.Instance.HandDetector;

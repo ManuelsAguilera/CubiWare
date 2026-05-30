@@ -1,0 +1,15 @@
+{
+    "asset": "7c0d26cad6b0f9c4a904ffcdb19574b1",
+    "fileName": "019e7670-c6a4-7263-9b64-67d63b71697a.wav",
+    "prompt": "Short digital beep for a countdown tick.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

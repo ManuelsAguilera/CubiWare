@@ -135,7 +135,7 @@ namespace ARcadeRush.Minigames.EmotionTest
         {
             _emotionModuleActive = !_emotionModuleActive;
 
-            var classifier = FindFirstObjectByType<EmotionClassifier>();
+            var classifier = FindAnyObjectByType<EmotionClassifier>();
             if (classifier != null)
                 classifier.SetEnabled(_emotionModuleActive);
 
@@ -152,11 +152,11 @@ namespace ARcadeRush.Minigames.EmotionTest
             if (_emotionDebugDisplay != null)
                 _emotionDebugDisplay.Reset();
 
-            var reader = FindFirstObjectByType<FaceLandmarkReader>();
+            var reader = FindAnyObjectByType<FaceLandmarkReader>();
             if (reader != null)
                 reader.ResetCalibration();
 
-            var classifier = FindFirstObjectByType<EmotionClassifier>();
+            var classifier = FindAnyObjectByType<EmotionClassifier>();
             if (classifier != null)
                 classifier.ResetState();
         }

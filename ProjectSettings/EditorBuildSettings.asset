@@ -6,35 +6,35 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/Bootstrap.unity
+    guid: 43bf2fdf0f43fbe49ba4d8dff217e75d
+  - enabled: 1
+    path: Assets/Scenes/MainMenu.unity
+    guid: 224e5c6b4a06f2058b895770207013cb
+  - enabled: 1
     path: Assets/Scenes/MenuNinjaFruit.unity
     guid: 2d681a967f5b6464cbb94f99982356a0
   - enabled: 1
     path: Assets/Scenes/FruitNinja.unity
     guid: 3e9bf35f34168584ca286c1397ac27d8
   - enabled: 1
-    path: Assets/Scenes/Bootstrap.unity
-    guid: 43bf2fdf0f43fbe49ba4d8dff217e75d
-  - enabled: 1
-    path: Assets/Scenes/MainMenu.unity
-    guid: 6883e21263fdd624290f58de8017405b
-  - enabled: 1
-    path: Assets/Scenes/DummyTest.unity
-    guid: fbdc19362a352064b8bc159f5f44581c
-  - enabled: 1
     path: Assets/Scenes/Shooter.unity
     guid: 68cb9644510ae504e9e12848a6ce0241
-  - enabled: 1
-    path: Assets/Scenes/FruitNinja.unity
-    guid: 3e9bf35f34168584ca286c1397ac27d8
-  - enabled: 1
-    path: Assets/Scenes/EmotionTest.unity
-    guid: 6dd349558487d87d49b60173b8234e4c
   - enabled: 1
     path: Assets/Scenes/Simon.unity
     guid: fe76df2be4249ec468ee01b8ee206784
   - enabled: 1
+    path: Assets/Scenes/DummyTest.unity
+    guid: fbdc19362a352064b8bc159f5f44581c
+  - enabled: 1
+    path: Assets/Scenes/FruitNinja.unity
+    guid: 3e9bf35f34168584ca286c1397ac27d8
+  - enabled: 1
     path: Assets/Scenes/Director.unity
     guid: a7838aaeff21d994583f44d431808937
+  - enabled: 1
+    path: Assets/Scenes/EmotionTest.unity
+    guid: 6dd349558487d87d49b60173b8234e4c
   m_configObjects:
+    com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  m_UseUCBPForAssetBundles: 0

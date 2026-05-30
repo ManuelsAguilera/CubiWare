@@ -21,7 +21,7 @@ public class Blade : MonoBehaviour
         MainCamera = Camera.main;
         BladeCollider = GetComponent<Collider>();
         bladeTrail = GetComponentInChildren<TrailRenderer>();
-        _handTracker = FindFirstObjectByType<HandPositionTracker>();
+        _handTracker = FindAnyObjectByType<HandPositionTracker>();
     }
 
     private void OnDisable() => StopSlicing();
