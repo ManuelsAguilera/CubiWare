@@ -1,7 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using ARcadeRush.Core;
-using ARcadeRush.Face;
+using ARcadeRush.EmotionDetection;
 using CubiWare.Core.Logging;
 
 namespace ARcadeRush.Minigames.SceneDirector
@@ -110,10 +110,14 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             CountdownController.Instance.OnCountdownExpired += OnCountdownExpired;
 
-            // TODO: Wire EmotionClassifier when live:
-            // var classifier = FindFirstObjectByType<EmotionClassifier>();
-            // if (classifier != null)
-            //     classifier.OnEmotionChanged += emotion => CameraController.Instance.OnEmotionDetected(emotion);
+            // TODO: Implement Director de Escena game loop using _deps.EmotionBridge (DeepFace).
+            // Available API:
+            //   _deps.EmotionBridge.SetMode(EmotionDetectionMode.AutoInterval)
+            //   _deps.EmotionBridge.OnEmotionChanged += (emotion, confidence) => { ... }
+            //   _deps.EmotionBridge.IsEmotionActive(EmotionType.Happy, 0.55f)
+            //   _deps.EmotionBridge.SetMode(EmotionDetectionMode.Window) + OpenDetectionWindow(duration)
+            //   _deps.EmotionBridge.OnWindowClosed += dominant => { ... }
+            // EmotionType: Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral, Unknown
         }
 
         private void UnwireEvents()

@@ -1,0 +1,7 @@
+deepface==0.0.93
+flask==3.0.3
+flask-sock==0.7.0
+opencv-python==4.10.0.84
+numpy==1.26.4
+gevent==24.2.1
+tf-keras==2.18.0
