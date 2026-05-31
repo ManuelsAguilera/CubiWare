@@ -82,3 +82,18 @@ $RECYCLE.BIN/
 
 # Auto-generated package registry cache
 ProjectSettings/Packages/
+
+# Python / DeepFace server
+PythonServer/venv/
+
+# Runtime-generated data (EmotionDataLogger CSV output)
+Assets/EmotionLogs.csv
+Assets/EmotionLogs.csv.meta
+
+# Wrong-path MCP artifact (correct scene is Assets/Scenes/EmotionTest.unity)
+Assets/EmotionTest.unity
+Assets/EmotionTest.unity.meta
+
+# Unity temporary recovery folder
+Assets/_Recovery/
+Assets/_Recovery.meta
