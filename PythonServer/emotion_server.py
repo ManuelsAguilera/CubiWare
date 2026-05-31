@@ -26,14 +26,34 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--strict-detection", action="store_true",
                     help="Set face_detected=False when face is small or confidence is low")
 parser.add_argument("--port", type=int, default=8765)
+parser.add_argument("--parent-pid", type=int, default=None,
+                    help="Unity process PID. Server exits automatically when Unity closes.")
 args = parser.parse_args()
 
 STRICT_DETECTION  = args.strict_detection
 PORT              = args.port
+PARENT_PID        = args.parent_pid
 MIN_FACE_WIDTH    = 50     # pixels — used in strict mode
 MIN_CONFIDENCE    = 0.30   # 0-1   — used in strict mode
 HISTORY_SIZE      = 4      # rolling average window
 ANALYZE_INTERVAL  = 0.10   # seconds between DeepFace calls
+
+
+def _start_parent_watchdog(pid: int):
+    """Background thread: exits the server if the Unity process disappears."""
+    def _watch():
+        while True:
+            time.sleep(2)
+            try:
+                os.kill(pid, 0)  # signal 0 = existence check only
+            except (ProcessLookupError, PermissionError):
+                print(f"[EmotionServer] Unity process {pid} ended — shutting down.")
+                os._exit(0)
+    threading.Thread(target=_watch, daemon=True).start()
+
+
+if PARENT_PID:
+    _start_parent_watchdog(PARENT_PID)
 
 # ── Verify DeepFace import ───────────────────────────────────────────────────
 print("[EmotionServer] Loading DeepFace...")
@@ -199,6 +219,7 @@ if __name__ == "__main__":
     print(f"[EmotionServer] Starting server on ws://localhost:{PORT}/ws")
     print(f"[EmotionServer] HTTP endpoints: http://localhost:{PORT}/status | /health")
     print(f"[EmotionServer] Strict detection: {STRICT_DETECTION}")
+    print(f"[EmotionServer] Parent PID watchdog: {PARENT_PID or 'disabled'}")
     print(f"[EmotionServer] Waiting for Unity to connect and send frames...")
 
     app.run(host="localhost", port=PORT, threaded=True)
