@@ -1,4 +1,4 @@
-# ARcade Rush — CubiWare
+# ARcade Rush: CubiWare
 
 Juego de minijuegos con detección de gestos y emociones usando MediaPipe y DeepFace.
 
@@ -11,7 +11,7 @@ Juego de minijuegos con detección de gestos y emociones usando MediaPipe y Deep
 | Componente | Linux | Windows |
 |---|---|---|
 | **Unity 6** | ✅ requerido | ✅ requerido |
-| **Python 3.10+** | ✅ usualmente ya instalado | [Descargar python.org](https://www.python.org/downloads/) ⚠️ marcar **"Add Python to PATH"** |
+| **Python 3.10+** | ✅ usualmente ya instalado | [Descargar python.org](https://www.python.org/downloads/) |
 | Webcam | ✅ | ✅ |
 
 ---
@@ -32,7 +32,6 @@ Unity configura automáticamente el entorno Python y lanza el servidor de detecc
 ### Windows
 
 1. Instalar **Python 3.10+** desde [python.org](https://www.python.org/downloads/)
-   - ⚠️ Durante la instalación, marcar **"Add Python to PATH"**
 2. Clonar el repositorio
 3. Abrir **Unity Hub** → abrir carpeta `CubiWare/`
 4. Abrir la escena `Assets/Scenes/Bootstrap.unity`
