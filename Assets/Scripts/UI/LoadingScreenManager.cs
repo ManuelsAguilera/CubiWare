@@ -52,8 +52,15 @@ namespace ARcadeRush.UI
         private TMP_Text       _tPercent;
 
         // State
-        private string         _stepHistory = "";
+        private string         _completedSteps = "";
+        private string         _currentStepMsg = "";
         private Coroutine      _fadeCoroutine;
+
+        // Spinner
+        private static readonly char[] _spinnerChars = { '|', '/', '-', '\\' };
+        private int   _spinnerFrame   = 0;
+        private float _spinnerTimer   = 0f;
+        private const float SPINNER_INTERVAL = 0.12f;
 
         // ── Unity Lifecycle ───────────────────────────────────────────────────
 
@@ -71,9 +78,12 @@ namespace ARcadeRush.UI
         /// <summary>Shows the Bootstrap status panel immediately.</summary>
         public void ShowBootstrap(string title = "ARcade Rush")
         {
-            _stepHistory = "";
-            _bStepLog.text = "";
-            _bTitle.text   = title;
+            _completedSteps = "";
+            _currentStepMsg = "";
+            _spinnerFrame   = 0;
+            _spinnerTimer   = 0f;
+            _bStepLog.text  = "";
+            _bTitle.text    = title;
             SetBarFill(_bBarFill, 0f);
             _bPercent.text = "0%";
 
@@ -82,35 +92,29 @@ namespace ARcadeRush.UI
             FadeTo(1f);
         }
 
-        /// <summary>
-        /// Updates Bootstrap mode with the current step.
-        /// previous steps get a ✓, current gets ●, future get ○.
-        /// </summary>
+        /// <summary>Updates Bootstrap mode with the current step. Active step shows animated ASCII spinner.</summary>
         public void SetStep(int current, int total, string message)
         {
-            // Append completed previous step line if not first
-            if (current > 1 && !string.IsNullOrEmpty(_stepHistory))
-            {
-                // Replace last ● with ✓
-                _stepHistory = _stepHistory.Replace(
-                    $"<color=#00B4FF>●</color>",
-                    $"<color=#00FF88>✓</color>");
-            }
-            _stepHistory += $"\n<color=#00B4FF>●</color>  {message}";
-            _bStepLog.text = _stepHistory.TrimStart('\n');
+            if (!string.IsNullOrEmpty(_currentStepMsg))
+                _completedSteps += $"\n<color=#00FF88>+</color>  {_currentStepMsg}";
+
+            _currentStepMsg = message;
+            _spinnerFrame   = 0;
+            _spinnerTimer   = 0f;
 
             float pct = (float)(current - 1) / total;
             SetBarFill(_bBarFill, pct);
             _bPercent.text = $"{Mathf.RoundToInt(pct * 100)}%";
+            UpdateStepDisplay();
         }
 
         /// <summary>Marks all steps complete and shows 100%.</summary>
         public void SetBootstrapComplete()
         {
-            _stepHistory = _stepHistory.Replace(
-                $"<color=#00B4FF>●</color>",
-                $"<color=#00FF88>✓</color>");
-            _bStepLog.text = _stepHistory.TrimStart('\n');
+            if (!string.IsNullOrEmpty(_currentStepMsg))
+                _completedSteps += $"\n<color=#00FF88>+</color>  {_currentStepMsg}";
+            _currentStepMsg = "";
+            _bStepLog.text = _completedSteps.TrimStart('\n');
             SetBarFill(_bBarFill, 1f);
             _bPercent.text = "100%";
         }
@@ -149,6 +153,26 @@ namespace ARcadeRush.UI
         }
 
         // ── Internal helpers ──────────────────────────────────────────────────
+
+        private void Update()
+        {
+            if (_bootstrapPanel == null || !_bootstrapPanel.activeSelf) return;
+            if (string.IsNullOrEmpty(_currentStepMsg)) return;
+
+            _spinnerTimer += Time.unscaledDeltaTime;
+            if (_spinnerTimer < SPINNER_INTERVAL) return;
+            _spinnerTimer = 0f;
+            _spinnerFrame = (_spinnerFrame + 1) % _spinnerChars.Length;
+            UpdateStepDisplay();
+        }
+
+        private void UpdateStepDisplay()
+        {
+            string display = _completedSteps;
+            if (!string.IsNullOrEmpty(_currentStepMsg))
+                display += $"\n<color=#00B4FF>{_spinnerChars[_spinnerFrame]}</color>  {_currentStepMsg}";
+            _bStepLog.text = display.TrimStart('\n');
+        }
 
         private void FadeTo(float target, System.Action onComplete = null)
         {

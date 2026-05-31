@@ -140,8 +140,8 @@ namespace CubiWare.Core
                 _logger.LogError("BootstrapManager", "MediaPipeController.Instance is null!", ServiceErrorCode.NotInitialized);
             yield return null;
 
-            // ── Step 7: FaceDetectorService ────────────────────────────────
-            Step(7, "Cargando detección facial...");
+            // ── Step 7: (Face detection removed — now handled by DeepFace) ──
+            Step(7, "Preparando servicios de detección...");
             yield return null;
 
             // ── Step 8: GroqLLMService ─────────────────────────────────────
