@@ -197,6 +197,7 @@ namespace ARcadeRush.EmotionDetection
             CurrentEmotion = EmotionType.Unknown;
             Confidence     = 0f;
             FaceDetected   = false;
+            _frameEmotion  = EmotionType.Unknown;
             _windowOpen_internal = false;
             IsWindowOpen   = false;
             _windowTimer   = 0f;
@@ -205,7 +206,11 @@ namespace ARcadeRush.EmotionDetection
 
         // ── Internal ──────────────────────────────────────────────────────────
 
-        private bool _windowOpen_internal;
+        private bool        _windowOpen_internal;
+        // The emotion detected in the current frame from the server.
+        // Updated every HandleData() call regardless of mode, so TickWindow()
+        // always has a fresh per-frame value to accumulate — not a stale CurrentEmotion.
+        private EmotionType _frameEmotion = EmotionType.Unknown;
 
         private void HandleData(EmotionData data)
         {
@@ -219,6 +224,9 @@ namespace ARcadeRush.EmotionDetection
             if (!_map.TryGetValue(data.dominant_emotion, out var incoming))
                 incoming = EmotionType.Unknown;
 
+            // Always track the per-frame emotion so Window mode can accumulate correctly.
+            _frameEmotion = incoming;
+
             if (DetectionMode == EmotionDetectionMode.AutoInterval)
             {
                 if (incoming != CurrentEmotion)
@@ -228,20 +236,21 @@ namespace ARcadeRush.EmotionDetection
                 }
                 else
                 {
-                    CurrentEmotion = incoming; // keep updated even if same enum
+                    CurrentEmotion = incoming;
                 }
             }
-            // In Window mode, accumulation happens in TickWindow() via Update()
+            // Window mode: _frameEmotion is used by TickWindow(); CurrentEmotion is
+            // not updated until the window closes with the dominant result.
         }
 
         private void TickWindow()
         {
             _windowTimer += Time.deltaTime;
 
-            // Vote for current emotion this frame
-            if (IsConnected && FaceDetected)
+            // Accumulate time for the emotion detected THIS frame (not the stale CurrentEmotion).
+            if (IsConnected && FaceDetected && _frameEmotion != EmotionType.Unknown)
             {
-                int idx = (int)CurrentEmotion;
+                int idx = (int)_frameEmotion;
                 if (idx >= 0 && idx < _windowAccum.Length)
                     _windowAccum[idx] += Time.deltaTime;
             }
