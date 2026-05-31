@@ -70,22 +70,42 @@ namespace ARcadeRush.Core
             StartCoroutine(CoLoadSceneAsync(sceneName, onComplete));
         }
 
+        // Scenes loaded from non-minigame contexts (Bootstrap, returns) don't need a loading overlay.
+        private static readonly System.Collections.Generic.HashSet<string> _silentScenes =
+            new() { "MainMenu", "Bootstrap" };
+
         private IEnumerator CoLoadSceneAsync(string sceneName, Action onComplete)
         {
             _logger.LogInfo("SceneLoader", $"Starting async load for scene: '{sceneName}'");
+
+            bool showLoading = !_silentScenes.Contains(sceneName);
+            if (showLoading)
+                ARcadeRush.UI.LoadingScreenManager.Instance?.ShowTransition(sceneName);
 
             AsyncOperation asyncOp = SceneManager.LoadSceneAsync(sceneName);
             if (asyncOp == null)
             {
                 _logger.LogError("SceneLoader", $"LoadSceneAsync returned null for scene '{sceneName}'. Is it in Build Settings?",
                     ServiceErrorCode.NotInitialized);
+                if (showLoading) ARcadeRush.UI.LoadingScreenManager.Instance?.Hide();
                 yield break;
             }
 
-            // Wait for the scene to fully load
+            // Wait for the scene to fully load, reporting progress each frame.
+            // asyncOp.progress caps at 0.9 until scene activation; map to 0–100%.
             while (!asyncOp.isDone)
             {
+                float pct = Mathf.Clamp01(asyncOp.progress / 0.9f);
+                if (showLoading)
+                    ARcadeRush.UI.LoadingScreenManager.Instance?.SetProgress(pct);
                 yield return null;
+            }
+
+            if (showLoading)
+            {
+                ARcadeRush.UI.LoadingScreenManager.Instance?.SetProgress(1f);
+                yield return null; // one extra frame so user sees 100%
+                ARcadeRush.UI.LoadingScreenManager.Instance?.Hide();
             }
 
             _logger.LogInfo("SceneLoader", $"Scene '{sceneName}' loaded successfully.");

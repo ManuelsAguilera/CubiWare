@@ -54,6 +54,10 @@ namespace CubiWare.Core
 
         private void Start()
         {
+            // Create loading screen before everything else so it's visible immediately.
+            var lsGO = new GameObject("LoadingScreenManager");
+            DontDestroyOnLoad(lsGO);
+            lsGO.AddComponent<ARcadeRush.UI.LoadingScreenManager>();
             StartCoroutine(InitializeAsync());
         }
 
@@ -66,56 +70,64 @@ namespace CubiWare.Core
 
         // ── Initialization Sequence ────────────────────────────────────────
 
+        private const int TOTAL_STEPS = 10;
+
+        private void Step(int n, string message)
+        {
+            _logger?.LogInfo("BootstrapManager", message);
+            ARcadeRush.UI.LoadingScreenManager.Instance?.SetStep(n, TOTAL_STEPS, message);
+        }
+
         private IEnumerator InitializeAsync()
         {
             State = BootstrapState.Initializing;
+            ARcadeRush.UI.LoadingScreenManager.Instance?.ShowBootstrap();
+            yield return null;
 
             // ── Step 1: Logger ─────────────────────────────────────────────
             _logger = ServiceLogger.Instance;
-            _logger.LogInfo("BootstrapManager", "Bootstrap starting — State=Initializing");
+            Step(1, "Iniciando servicios...");
             yield return null;
 
             // ── Step 2: Create data store ──────────────────────────────────
             _dataStore = new PlayerPrefsDataStore();
-            _logger.LogInfo("BootstrapManager", "PlayerPrefsDataStore created.");
+            Step(2, "Cargando datos de usuario...");
             yield return null;
 
             // ── Step 3: Initialize SceneLoader ─────────────────────────────
             SceneLoader.Instance.Initialize(this);
-            _logger.LogInfo("BootstrapManager", "SceneLoader initialized.");
+            Step(3, "Inicializando cargador de escenas...");
             yield return null;
 
             // ── Step 4: Initialize GameManager ─────────────────────────────
             GameManager.Instance.Initialize(_dataStore, SceneLoader.Instance);
-            _logger.LogInfo("BootstrapManager", "GameManager initialized.");
+            Step(4, "Inicializando GameManager...");
             yield return null;
 
             // ── Step 5: CameraFeedProvider ─────────────────────────────────
-            if (CameraFeedCtrl.Instance != null)
-                _logger.LogInfo("BootstrapManager", "CameraFeedProvider ready.");
-            else
+            Step(5, "Inicializando cámara...");
+            if (CameraFeedCtrl.Instance == null)
                 _logger.LogError("BootstrapManager", "CameraFeedCtrl.Instance is null!", ServiceErrorCode.NotInitialized);
             yield return null;
 
             // ── Step 6: HandDetectorService ────────────────────────────────
-            if (MediaPipeController.Instance != null)
-                _logger.LogInfo("BootstrapManager", "HandDetectorService will be initialized by MediaPipeController.Start().");
-            else
+            Step(6, "Cargando detección de gestos (MediaPipe)...");
+            if (MediaPipeController.Instance == null)
                 _logger.LogError("BootstrapManager", "MediaPipeController.Instance is null!", ServiceErrorCode.NotInitialized);
             yield return null;
 
             // ── Step 7: FaceDetectorService ────────────────────────────────
-            _logger.LogInfo("BootstrapManager", "FaceDetectorService will be initialized by MediaPipeController.Start().");
+            Step(7, "Cargando detección facial...");
             yield return null;
 
             // ── Step 8: GroqLLMService ─────────────────────────────────────
-            if (LLMConnector.Instance != null)
-                _logger.LogInfo("BootstrapManager", "GroqLLMService initialized by LLMConnector.Awake().");
-            else
+            Step(8, "Conectando al servicio LLM...");
+            if (LLMConnector.Instance == null)
                 _logger.LogError("BootstrapManager", "LLMConnector.Instance is null!", ServiceErrorCode.NotInitialized);
             yield return null;
 
             // ── Step 8.5: Python Emotion Server ───────────────────────────
+            Step(9, "Iniciando servidor de emociones (DeepFace)...");
             yield return StartCoroutine(LaunchPythonServerAsync());
 
             // ── Step 9: EmotionGameBridge ──────────────────────────────────
@@ -125,19 +137,20 @@ namespace CubiWare.Core
                 var bridge = go.AddComponent<ARcadeRush.EmotionDetection.EmotionGameBridge>();
                 var client = go.AddComponent<ARcadeRush.EmotionDetection.EmotionWebSocketClient>();
                 bridge.Initialize(client);
-                _logger.LogInfo("BootstrapManager", "EmotionGameBridge initialized.");
             }
+            Step(10, "Cargando menú principal...");
             yield return null;
 
-            // ── Step 10: Mark as Initialized ──────────────────────────────
+            // ── Complete ───────────────────────────────────────────────────
             State = BootstrapState.Initialized;
-            _logger.LogInfo("BootstrapManager", "Bootstrap complete — State=Initialized");
+            ARcadeRush.UI.LoadingScreenManager.Instance?.SetBootstrapComplete();
             yield return null;
 
-            // ── Step 11-12: Load MainMenu ──────────────────────────────────
-            _logger.LogInfo("BootstrapManager", "Loading MainMenu...");
             SceneLoader.Instance.LoadSceneAsync("MainMenu", () =>
-                _logger.LogInfo("BootstrapManager", "MainMenu loaded."));
+            {
+                _logger.LogInfo("BootstrapManager", "MainMenu loaded.");
+                ARcadeRush.UI.LoadingScreenManager.Instance?.Hide();
+            });
         }
 
         // ── Python Server Lifecycle ────────────────────────────────────────
