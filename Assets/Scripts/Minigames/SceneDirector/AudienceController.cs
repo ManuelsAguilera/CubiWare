@@ -33,6 +33,10 @@ namespace ARcadeRush.Minigames.SceneDirector
         [Header("References")]
         [SerializeField] private Animator _animator;
 
+        [Header("Dialogue")]
+        [Tooltip("TextMeshProUGUI positioned above the audience sprite. Shown via ShowDialogue().")]
+        [SerializeField] private TMPro.TextMeshProUGUI _dialogueText;
+
         private static readonly int ParamSlightMove = Animator.StringToHash("SlightMove");
         private static readonly int TriggerReact    = Animator.StringToHash("React");
         private static readonly int ParamIsPositive = Animator.StringToHash("IsPositive");
@@ -71,6 +75,8 @@ namespace ARcadeRush.Minigames.SceneDirector
         public void SlightMove()
         {
             if (CurrentState == AudienceState.React) return; // don't interrupt a big reaction
+            // Guard against log spam — only log and set animator if not already in SlightMove
+            if (_animator != null && _animator.GetBool(ParamSlightMove)) return;
             CurrentState = AudienceState.SlightMove;
             _animator.SetBool(ParamSlightMove, true);
             ServiceLogger.Instance.LogInfo(LogServiceName, "Audience → SlightMove");
@@ -94,6 +100,29 @@ namespace ARcadeRush.Minigames.SceneDirector
             _animator.SetBool(ParamIsPositive, false);
             _animator.SetTrigger(TriggerReact);
             ServiceLogger.Instance.LogInfo(LogServiceName, "Audience → React (tomatoes)");
+        }
+
+        // ── Dialogue ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Shows a dialogue bubble above the audience for the specified duration.
+        /// Use for witty commentary, heckles, or LLM-generated audience lines.
+        /// </summary>
+        public void ShowDialogue(string text, float duration = 2.5f)
+        {
+            if (_dialogueText != null)
+            {
+                _dialogueText.text = text;
+                _dialogueText.gameObject.SetActive(true);
+                StartCoroutine(HideDialogueAfter(duration));
+            }
+        }
+
+        private System.Collections.IEnumerator HideDialogueAfter(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (_dialogueText != null)
+                _dialogueText.gameObject.SetActive(false);
         }
 
         // ── Animation Event ───────────────────────────────────────────────────────

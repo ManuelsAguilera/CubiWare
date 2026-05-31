@@ -1,0 +1,15 @@
+{
+    "asset": "d0a8a00e93cfa8f48b60f309a11015d7",
+    "fileName": "019e7671-1b6f-7e66-ada5-d2f06c4e14d2.wav",
+    "prompt": "Large audience applauding and cheering.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

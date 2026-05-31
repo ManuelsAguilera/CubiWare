@@ -1,0 +1,28 @@
+{
+    "asset": "18db6a6b27f92c748ac6ef4d15dd1c24",
+    "fileName": "019e766a-b9ba-7aff-a71b-053a7432ab82.png",
+    "prompt": "A happy emoticon icon, smiling, yellow gold circle, glowing eyes. Flat vector style, game UI.",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

@@ -1,0 +1,15 @@
+{
+    "asset": "fd348a8a7ca734042a760b2abb2a694e",
+    "fileName": "019e7670-c70f-7526-8c52-014a7bba09fa.wav",
+    "prompt": "Soft fabric whoosh of a theater curtain opening.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

@@ -1,0 +1,15 @@
+{
+    "asset": "1711827745894424382cc8d4f1883688",
+    "fileName": "019e7670-c6a1-718f-a7cc-004ec98bf725.wav",
+    "prompt": "Bright chime for a game starting or \"Go!\".",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

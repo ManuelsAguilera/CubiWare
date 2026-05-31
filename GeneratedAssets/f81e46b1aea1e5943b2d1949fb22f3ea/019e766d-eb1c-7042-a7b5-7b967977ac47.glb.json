@@ -1,0 +1,23 @@
+{
+    "asset": "f81e46b1aea1e5943b2d1949fb22f3ea",
+    "fileName": "019e766d-eb1c-7042-a7b5-7b967977ac47.glb",
+    "prompt": "Angry theater mask.",
+    "negativePrompt": "",
+    "model": "model3d-tripo-p1",
+    "modelName": "Tripo P1",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "promptImageReferenceGuid": "255066dd52ac05048a76cf72a9019c49",
+    "modelReferenceGuid": "",
+    "multiviewFrontGuid": "",
+    "multiviewBackGuid": "",
+    "multiviewLeftGuid": "",
+    "multiviewRightGuid": "",
+    "multiviewTopGuid": "",
+    "multiviewBottomGuid": "",
+    "multiviewLeftFrontGuid": "",
+    "multiviewRightFrontGuid": "",
+    "faceLimit": -1
+}

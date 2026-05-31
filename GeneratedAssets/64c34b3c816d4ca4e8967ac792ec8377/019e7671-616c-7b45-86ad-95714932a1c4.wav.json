@@ -1,0 +1,15 @@
+{
+    "asset": "64c34b3c816d4ca4e8967ac792ec8377",
+    "fileName": "019e7671-616c-7b45-86ad-95714932a1c4.wav",
+    "prompt": "Wet splatter impact sound of a tomato hitting a surface.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

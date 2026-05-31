@@ -9,7 +9,7 @@ namespace ARcadeRush.DebuggerTool
 
         void Start()
         {
-            _detector = FindFirstObjectByType<GestureDetector>();
+            _detector = FindAnyObjectByType<GestureDetector>();
             if (_detector == null)
             {
                 Debug.LogError("[GestureDebugger] No GestureDetector found in scene!");

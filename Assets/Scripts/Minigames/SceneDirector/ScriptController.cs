@@ -47,6 +47,17 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private Image           _emotionIcon;
         [Tooltip("Sprites indexed by EmotionLabel cast to int: [0]=Neutral [1]=Happy [2]=Surprised [3]=Angry.")]
         [SerializeField] private Sprite[]        _emotionSprites;
+        [Tooltip("Text that shows the LLM-generated intro. Displayed before countdown starts.")]
+        [SerializeField] private TextMeshProUGUI _introText;
+
+        // ── Inspector — Difficulty ────────────────────────────────────────────────
+        [Header("Difficulty Curve (fallback when LLM is not used)")]
+        [Tooltip("Number of emotions in the sequence. Range 3-6.")]
+        [SerializeField] [Range(3, 6)] private int _sequenceLength = 3;
+        [Tooltip("Time limit for the first element in the sequence.")]
+        [SerializeField] private float _timeLimitStart = 6f;
+        [Tooltip("Time limit for the last element (linearly interpolated across sequence).")]
+        [SerializeField] private float _timeLimitEnd = 3f;
 
         // ── Inspector — Testing ───────────────────────────────────────────────────
         [Header("Hardcoded Test Sequence")]
@@ -66,6 +77,7 @@ namespace ARcadeRush.Minigames.SceneDirector
             ? _sequence[_currentIndex] : default;
         public int  CurrentIndex   => _currentIndex;
         public int  TotalElements  => _sequence.Count;
+        public int  SequenceLength => _sequenceLength;
         public bool IsActive       => _currentIndex >= 0 && _currentIndex < _sequence.Count;
 
         private const string LogServiceName = "ScriptController";
@@ -102,6 +114,51 @@ namespace ARcadeRush.Minigames.SceneDirector
             _currentIndex = -1;
             ServiceLogger.Instance.LogInfo(LogServiceName, $"Sequence loaded: {_sequence.Count} elements.");
             AdvanceToNext();
+        }
+
+        /// <summary>
+        /// Displays the LLM-generated intro text in the UI.
+        /// Called from SceneDirectorGame after sequence generation completes.
+        /// </summary>
+        public void ShowIntro(string intro)
+        {
+            if (_introText != null)
+            {
+                _introText.text = intro;
+                _introText.gameObject.SetActive(true);
+                ServiceLogger.Instance.LogInfo(LogServiceName, "Intro text displayed.");
+            }
+        }
+
+        /// <summary>
+        /// Hides the intro text — called when gameplay starts.
+        /// </summary>
+        public void HideIntro()
+        {
+            if (_introText != null)
+                _introText.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Generates a hardcoded sequence using the difficulty curve fields.
+        /// Time limit is linearly interpolated from _timeLimitStart to _timeLimitEnd
+        /// across the sequence.
+        /// </summary>
+        public List<ScriptElement> GenerateLocalSequence()
+        {
+            var list = new List<ScriptElement>(_sequenceLength);
+            // Cycle through non-Neutral emotions: Happy(1), Surprised(2), Angry(3)
+            for (int i = 0; i < _sequenceLength; i++)
+            {
+                float t = _sequenceLength > 1 ? (float)i / (_sequenceLength - 1) : 0f;
+                float timeLimit = Mathf.Lerp(_timeLimitStart, _timeLimitEnd, t);
+                list.Add(new ScriptElement
+                {
+                    RequiredEmotion = (EmotionLabel)(1 + (i % 3)), // 1=Happy, 2=Surprised, 3=Angry
+                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 8f)
+                });
+            }
+            return list;
         }
 
         /// <summary>

@@ -70,7 +70,7 @@ namespace ARcadeRush.Core
 
         private System.Collections.IEnumerator StartCameraRoutine()
         {
-            _logger.LogInfo("CameraFeedCtrl", $"StartCameraRoutine started on instance {GetInstanceID()}");
+            _logger.LogInfo("CameraFeedCtrl", $"StartCameraRoutine started on instance {GetEntityId()}");
 
             #if UNITY_IOS || UNITY_WEBGL
             yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);

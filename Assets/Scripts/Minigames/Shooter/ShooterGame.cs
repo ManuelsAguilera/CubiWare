@@ -77,9 +77,9 @@ namespace ARcadeRush.Minigames.Shooter
             // Defensive fallback: find HUDController if not assigned in the Inspector
             if (_hudController == null)
             {
-                _hudController = FindFirstObjectByType<HUDController>(FindObjectsInactive.Include);
+                _hudController = FindAnyObjectByType<HUDController>(FindObjectsInactive.Include);
                 if (_hudController != null)
-                    _logger.LogWarning("ShooterGame", "_hudController was not assigned in Inspector — resolved via FindFirstObjectByType.");
+                    _logger.LogWarning("ShooterGame", "_hudController was not assigned in Inspector — resolved via FindAnyObjectByType.");
                 else
                     _logger.LogError("ShooterGame", "No HUDController found in scene! Start menu will not appear.", ServiceErrorCode.MinigameDependencyMissing);
             }
@@ -325,9 +325,9 @@ namespace ARcadeRush.Minigames.Shooter
             // Defensive fallback: find HUDController if not assigned in the Inspector
             if (_hudController == null)
             {
-                _hudController = FindFirstObjectByType<HUDController>(FindObjectsInactive.Include);
+                _hudController = FindAnyObjectByType<HUDController>(FindObjectsInactive.Include);
                 if (_hudController != null)
-                    _logger.LogWarning("ShooterGame", "_hudController was not assigned in Inspector — resolved via FindFirstObjectByType (debug).");
+                    _logger.LogWarning("ShooterGame", "_hudController was not assigned in Inspector — resolved via FindAnyObjectByType (debug).");
             }
 
             _hasGameEnded = false;

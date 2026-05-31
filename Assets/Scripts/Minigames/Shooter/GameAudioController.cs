@@ -50,7 +50,7 @@ namespace ARcadeRush.Minigames.Shooter
         /// <summary>
         /// Sets the GameManager reference for pause/resume event subscriptions.
         /// Called by ShooterGame during initialization, replacing the previous
-        /// FindFirstObjectByType lookup.
+        /// FindAnyObjectByType lookup.
         /// </summary>
         /// <param name="gameManager">The active GameManager instance.</param>
         public void Initialize(GameManager gameManager)
@@ -195,14 +195,14 @@ namespace ARcadeRush.Minigames.Shooter
         private void Start()
         {
             // If Initialize() has not been called (missing bootstrap path),
-            // fall back to the legacy FindFirstObjectByType lookup.
+            // fall back to the legacy FindAnyObjectByType lookup.
             if (_gameManager == null)
             {
-                _gameManager = FindFirstObjectByType<GameManager>();
+                _gameManager = FindAnyObjectByType<GameManager>();
                 if (_gameManager != null)
                 {
                     _logger.LogInfo("GameAudioController",
-                        "GameManager resolved via FindFirstObjectByType (legacy fallback).");
+                        "GameManager resolved via FindAnyObjectByType (legacy fallback).");
                     _gameManager.OnGamePaused += PauseMusic;
                     _gameManager.OnGameResumed += ResumeMusic;
                 }
