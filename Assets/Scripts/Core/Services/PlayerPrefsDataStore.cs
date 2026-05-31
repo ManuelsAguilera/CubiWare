@@ -50,7 +50,7 @@ namespace CubiWare.Core.Services
             {
                 if (!PlayerPrefs.HasKey(key))
                 {
-                    _logger.LogWarning(nameof(PlayerPrefsDataStore), $"Key '{key}' not found in PlayerPrefs.");
+                    _logger.LogInfo(nameof(PlayerPrefsDataStore), $"Key '{key}' not found in PlayerPrefs. Returning default.");
                     return Task.FromResult(default(T));
                 }
 

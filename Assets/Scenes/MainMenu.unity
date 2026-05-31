@@ -1236,6 +1236,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7000060}
   m_CullTransparentMesh: 1
+--- !u!114 &7000063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!114 &7000064
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1417,26 +1437,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &7000063
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7000060}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  textComponent: {fileID: 0}
-  scaleMultiplier: 1.08
-  scaleDuration: 0.12
-  waveAmplitude: 4
-  waveSpeed: 2
-  wavePhaseStep: 0.5
-  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
-  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000070
 GameObject:
   m_ObjectHideFlags: 0
@@ -1484,6 +1484,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7000070}
   m_CullTransparentMesh: 1
+--- !u!114 &7000073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!114 &7000074
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1665,26 +1685,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &7000073
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7000070}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  textComponent: {fileID: 0}
-  scaleMultiplier: 1.08
-  scaleDuration: 0.12
-  waveAmplitude: 4
-  waveSpeed: 2
-  wavePhaseStep: 0.5
-  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
-  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000080
 GameObject:
   m_ObjectHideFlags: 0
@@ -1732,6 +1732,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7000080}
   m_CullTransparentMesh: 1
+--- !u!114 &7000083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textComponent: {fileID: 0}
+  scaleMultiplier: 1.08
+  scaleDuration: 0.12
+  waveAmplitude: 4
+  waveSpeed: 2
+  wavePhaseStep: 0.5
+  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
+  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!114 &7000084
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1776,26 +1796,6 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &7000083
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7000080}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  textComponent: {fileID: 0}
-  scaleMultiplier: 1.08
-  scaleDuration: 0.12
-  waveAmplitude: 4
-  waveSpeed: 2
-  wavePhaseStep: 0.5
-  colorTop: {r: 1, g: 0.91, b: 0, a: 1}
-  colorBottom: {r: 1, g: 0.416, b: 0, a: 1}
 --- !u!1 &7000085
 GameObject:
   m_ObjectHideFlags: 0
@@ -3000,9 +3000,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 669056766}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: be76e5f14cfee674cb30b491fb72b09b, type: 3}
+  m_Script: {fileID: 11500000, guid: 700cb1232b0a0f14189a626c425a8088, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::ARcadeRush.UI.MainMenuController
+  _mainMenuPanel: {fileID: 0}
+  _gameSelectorPanel: {fileID: 0}
+  _jugarBtn: {fileID: 0}
+  _backBtn: {fileID: 0}
+  _startTestingSceneBtn: {fileID: 0}
+  _startShooterBtn: {fileID: 0}
+  _startFruitNinjaBtn: {fileID: 0}
+  _startDirectorBtn: {fileID: 0}
+  _startSimonBtn: {fileID: 0}
+  _startTest2Btn: {fileID: 0}
+  _lastScoreText: {fileID: 0}
+  _scorePrefix: 'Last Score: '
 --- !u!850595691 &1094120696
 LightingSettings:
   m_ObjectHideFlags: 0
