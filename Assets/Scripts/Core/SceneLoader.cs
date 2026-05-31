@@ -101,11 +101,14 @@ namespace ARcadeRush.Core
                 yield return null;
             }
 
+            // Scene assets loaded — show 100% but keep the screen visible until
+            // OnStart() finishes. OnStart() can be slow (camera re-assignment,
+            // component init). Hiding before it runs leaves the user with a blank
+            // frozen screen if OnStart blocks the main thread.
             if (showLoading)
             {
                 ARcadeRush.UI.LoadingScreenManager.Instance?.SetProgress(1f);
-                yield return null; // one extra frame so user sees 100%
-                ARcadeRush.UI.LoadingScreenManager.Instance?.Hide();
+                yield return null; // one frame so user sees 100%
             }
 
             _logger.LogInfo("SceneLoader", $"Scene '{sceneName}' loaded successfully.");
@@ -130,6 +133,12 @@ namespace ARcadeRush.Core
             {
                 _logger.LogInfo("SceneLoader", $"No IMiniGame found in scene '{sceneName}'.");
             }
+
+            // Hide loading screen AFTER OnStart() so it stays visible during any
+            // synchronous initialization work the minigame does (camera reassignment,
+            // component init, etc.).
+            if (showLoading)
+                ARcadeRush.UI.LoadingScreenManager.Instance?.Hide();
 
             // Invoke the completion callback
             onComplete?.Invoke();
