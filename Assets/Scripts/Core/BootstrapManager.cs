@@ -105,9 +105,33 @@ namespace CubiWare.Core
             yield return null;
 
             // ── Step 5: CameraFeedProvider ─────────────────────────────────
+            // Start camera HERE during Bootstrap so any v4l2/driver freeze
+            // happens while the loading screen is visible ("Inicializando cámara..."),
+            // not silently after a minigame scene loads.
             Step(5, "Inicializando cámara...");
-            if (CameraFeedCtrl.Instance == null)
+            if (CameraFeedCtrl.Instance != null)
+            {
+                CameraFeedCtrl.Instance.StartCamera();
+
+                // Wait up to 10 seconds for the camera to start playing.
+                // The yield lets frames render while we wait — the loading screen
+                // stays visible and the user sees progress, not a frozen screen.
+                float cameraWait = 0f;
+                while (!CameraFeedCtrl.Instance.IsPlaying && cameraWait < 10f)
+                {
+                    cameraWait += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+
+                if (CameraFeedCtrl.Instance.IsPlaying)
+                    _logger.LogInfo("BootstrapManager", $"Camera ready after {cameraWait:F1}s.");
+                else
+                    _logger.LogWarning("BootstrapManager", "Camera did not start within 10s — continuing anyway.");
+            }
+            else
+            {
                 _logger.LogError("BootstrapManager", "CameraFeedCtrl.Instance is null!", ServiceErrorCode.NotInitialized);
+            }
             yield return null;
 
             // ── Step 6: HandDetectorService ────────────────────────────────

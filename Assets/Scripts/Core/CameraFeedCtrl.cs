@@ -104,6 +104,11 @@ namespace ARcadeRush.Core
 
             if (_webCamTexture == null)
             {
+                // Yield one frame before querying devices — on Linux/v4l2 this call
+                // can block 5-30s on first use. The yield lets the loading screen
+                // render at least one frame before we potentially freeze.
+                yield return null;
+
                 WebCamDevice[] devices = WebCamTexture.devices;
                 for (int i = 0; i < devices.Length; i++)
                 {
