@@ -55,7 +55,7 @@ public class GameTimer : MonoBehaviour
     void GameOver()
     {
         // Avisa al GameManager que se acabo el tiempo
-        GameManagerFruit gm = FindFirstObjectByType<GameManagerFruit>();
+        GameManagerFruit gm = FindAnyObjectByType<GameManagerFruit>();
         if (gm != null)
             gm.MostrarGameOver();
     }

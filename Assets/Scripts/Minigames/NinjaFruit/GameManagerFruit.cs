@@ -22,8 +22,8 @@ public class GameManagerFruit : MonoBehaviour
 
     private void Awake()
     {
-        blade = FindFirstObjectByType<Blade>();
-        spawner = FindFirstObjectByType<Spawner>();
+        blade = FindAnyObjectByType<Blade>();
+        spawner = FindAnyObjectByType<Spawner>();
     }
 
     private void Start()
@@ -58,16 +58,16 @@ public class GameManagerFruit : MonoBehaviour
         score = 0;
         scoreText.text = score.ToString();
 
-        FindFirstObjectByType<LivesManager>()?.ResetVidas();
+        FindAnyObjectByType<LivesManager>()?.ResetVidas();
     }
 
     private void ClearScene()
     {
-        Fruit[] fruits = FindObjectsByType<Fruit>(FindObjectsSortMode.None);
+        Fruit[] fruits = FindObjectsByType<Fruit>();
         foreach (Fruit fruit in fruits)
             Destroy(fruit.gameObject);
 
-        Bomb[] bombs = FindObjectsByType<Bomb>(FindObjectsSortMode.None);
+        Bomb[] bombs = FindObjectsByType<Bomb>();
         foreach (Bomb bomb in bombs)
             Destroy(bomb.gameObject);
     }
@@ -85,7 +85,7 @@ public class GameManagerFruit : MonoBehaviour
 
         blade.enabled = false;
         spawner.enabled = false;
-        FindFirstObjectByType<GameTimer>()?.PausarTimer(true);
+        FindAnyObjectByType<GameTimer>()?.PausarTimer(true);
         StartCoroutine(ExplodeSequence());
     }
 
@@ -96,7 +96,7 @@ public class GameManagerFruit : MonoBehaviour
 
         blade.enabled = false;
         spawner.enabled = false;
-        FindFirstObjectByType<GameTimer>()?.PausarTimer(true);
+        FindAnyObjectByType<GameTimer>()?.PausarTimer(true);
         StartCoroutine(ExplodeSequence());
     }
 

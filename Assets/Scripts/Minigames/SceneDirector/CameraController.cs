@@ -11,14 +11,14 @@ namespace ARcadeRush.Minigames.SceneDirector
     /// Responsibilities:
     ///   • Routes the live webcam feed to the RawImage display.
     ///   • Owns the MaskController reference and forwards emotion changes to it.
-    ///   • In TESTING MODE: keyboard keys (H / S / A / N) simulate emotion changes
-    ///     for mask swapping while EmotionClassifier is not yet wired.
+    ///   • In editor simulation mode: keyboard keys (H / S / A / N) update SimulatedEmotion.
+    ///     The simulation is consumed by SceneDirectorGame.Update() — this controller
+    ///     no longer drives the approval bar directly.
     ///
     /// Setup in the Unity Editor:
     ///   1. Attach to the Camera UI panel GameObject.
     ///   2. Assign _cameraDisplay (RawImage that will show the webcam feed).
     ///   3. Assign _maskController (child GameObject with MaskController).
-    ///   4. Set _testingMode = true while EmotionClassifier is disabled.
     /// </summary>
     public class CameraController : MonoBehaviour
     {
@@ -28,11 +28,15 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private RawImage      _cameraDisplay;
         [SerializeField] private MaskController _maskController;
 
-        [Header("Testing Mode")]
-        [Tooltip("While true, keyboard keys H/S/A/N simulate emotion changes for mask testing.")]
-        [SerializeField] private bool _testingMode = true;
-
         private const string LogServiceName = "CameraController";
+
+        // ── Emotion simulation (editor-only) ───────────────────────────────────
+
+        /// <summary>
+        /// The last simulated emotion from keyboard input.
+        /// Read by SceneDirectorGame.Update() when _editorSimulation is active.
+        /// </summary>
+        public EmotionLabel SimulatedEmotion { get; private set; } = EmotionLabel.Neutral;
 
         private void Awake()
         {
@@ -47,9 +51,8 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private void Update()
         {
-            if (!_testingMode) return;
-
-            // TODO: Remove this block and wire EmotionClassifier.OnEmotionChanged instead.
+#if UNITY_EDITOR
+            // Keyboard simulation: H=Happy S=Surprised A=Angry N=Neutral
             EmotionLabel? sim = null;
             if (Input.GetKeyDown(KeyCode.H)) sim = EmotionLabel.Happy;
             if (Input.GetKeyDown(KeyCode.S)) sim = EmotionLabel.Surprised;
@@ -57,7 +60,12 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (Input.GetKeyDown(KeyCode.N)) sim = EmotionLabel.Neutral;
 
             if (sim.HasValue)
-                OnEmotionDetected(sim.Value);
+            {
+                SimulatedEmotion = sim.Value;
+                // Immediately swap mask on key press (mask should be responsive)
+                SetMaskEmotion(sim.Value);
+            }
+#endif
         }
 
         // ── Public API ────────────────────────────────────────────────────────────
@@ -74,14 +82,12 @@ namespace ARcadeRush.Minigames.SceneDirector
         }
 
         /// <summary>
-        /// Single entry point for a detected emotion — drives both the AR mask and the approval bar.
-        /// In testing mode called by the keyboard stub above.
-        /// TODO: Wire to EmotionClassifier.OnEmotionChanged in SceneDirectorGame when classifier is live.
+        /// Drives only the AR mask swap. Approval bar polling is handled
+        /// centrally by SceneDirectorGame.Update() to avoid conflicts.
         /// </summary>
-        public void OnEmotionDetected(EmotionLabel emotion)
+        public void SetMaskEmotion(EmotionLabel emotion)
         {
             _maskController?.SetEmotion(emotion);
-            ApprovalBarController.Instance?.SetDetectedEmotion(emotion);
         }
     }
 }

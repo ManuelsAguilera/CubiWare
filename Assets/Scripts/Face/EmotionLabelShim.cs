@@ -4,5 +4,15 @@
 // and delete this file.
 namespace ARcadeRush.Face
 {
-    public enum EmotionLabel { Neutral = 0, Happy = 1, Surprised = 2, Angry = 3 }
+    public enum EmotionLabel
+    {
+        Neutral  = 0,
+        Happy    = 1,
+        Surprised = 2,
+        Angry    = 3,
+        // New emotions from DeepFace (indices kept stable — do not reorder above)
+        Disgust  = 4,
+        Fear     = 5,
+        Sad      = 6,
+    }
 }

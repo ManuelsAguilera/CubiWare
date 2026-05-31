@@ -23,7 +23,7 @@ public class Fruit : MonoBehaviour
         if (!cortada && !vidaPerdida && transform.position.y < -8f)
         {
             vidaPerdida = true;
-            LivesManager lm = FindFirstObjectByType<LivesManager>();
+            LivesManager lm = FindAnyObjectByType<LivesManager>();
             if (lm != null)
                 lm.PerderVida();
 

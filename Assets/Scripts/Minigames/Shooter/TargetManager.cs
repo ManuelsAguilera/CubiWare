@@ -80,7 +80,7 @@ namespace ARcadeRush.Minigames.Shooter
             }
             else
             {
-                allTargets = FindObjectsByType<Target>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                allTargets = FindObjectsByType<Target>(FindObjectsInactive.Include);
             }
 
             _targetsByRow = new Dictionary<string, List<Target>>();

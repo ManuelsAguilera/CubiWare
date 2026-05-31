@@ -1,0 +1,15 @@
+{
+    "asset": "1117baa3615fba242b8e43c7fbde7778",
+    "fileName": "019e7671-97f4-7d69-8cff-6c1982339e19.mp3",
+    "prompt": "Upbeat theater circus march, loopable, playful.",
+    "negativePrompt": "",
+    "model": "google-lyria-3-clip",
+    "modelName": "Google Lyria 3 Clip",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

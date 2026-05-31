@@ -71,7 +71,7 @@ namespace ARcadeRush.UI
             {
                 // EmotionTest (Director) — loaded via registry
                 _startDirectorBtn.onClick.AddListener(() =>
-                    LoadSceneByName("EmotionTest"));
+                    LoadSceneByName("Director"));
             }
 
             if (_startSimonBtn != null)
@@ -84,7 +84,8 @@ namespace ARcadeRush.UI
             if (_startTest2Btn != null)
             {
                 // Test2 — fallback to legacy delayed load with scenario index
-                _startTest2Btn.onClick.AddListener(() => LoadScene(4));
+                _startTest2Btn.onClick.AddListener(() =>
+                    LoadSceneByName("EmotionTest"));
             }
 
             if (_jugarBtn != null)

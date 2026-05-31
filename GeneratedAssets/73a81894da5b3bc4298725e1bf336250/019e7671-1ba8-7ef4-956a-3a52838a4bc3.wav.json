@@ -1,0 +1,15 @@
+{
+    "asset": "73a81894da5b3bc4298725e1bf336250",
+    "fileName": "019e7671-1ba8-7ef4-956a-3a52838a4bc3.wav",
+    "prompt": "Pleasant success chime.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}
