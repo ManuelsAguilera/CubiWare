@@ -1,0 +1,13 @@
+{
+  "enabled_emotions": ["happy", "angry", "sad", "neutral", "surprise"],
+  "disabled_emotions": ["disgust", "fear"],
+  "per_emotion_confidence_thresholds": {
+    "happy": 0.40,
+    "angry": 0.40,
+    "sad": 0.35,
+    "neutral": 0.50,
+    "surprise": 0.35
+  },
+  "default_threshold": 0.40,
+  "rolling_window_size": 4
+}

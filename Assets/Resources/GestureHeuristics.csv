@@ -1,6 +1,7 @@
 GestureName,Thumb,Index,Middle,Ring,Pinky,PinchMax,CustomRule
 OpenHand,ANY,UP,UP,UP,UP,1.0,None
 ClosedFist,ANY,DOWN,DOWN,DOWN,DOWN,1.0,None
-Point,EitherUp,EitherUp,DOWN,DOWN,DOWN,1.0,None
-Pinch,ANY,ANY,ANY,ANY,ANY,0.05,None
-ThumbDown,DOWN,UP,DOWN,DOWN,DOWN,1.0,ThumbTipBelowIP
+# ── Disabled for Phase 1 (Simon Mod) ──
+# Point,EitherUp,EitherUp,DOWN,DOWN,DOWN,1.0,None
+# Pinch,ANY,ANY,ANY,ANY,ANY,0.05,None
+# ThumbDown,DOWN,UP,DOWN,DOWN,DOWN,1.0,ThumbTipBelowIP

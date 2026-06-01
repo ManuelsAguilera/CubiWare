@@ -9,16 +9,37 @@ namespace ARcadeRush.Hand
 {
     public enum GestureType { None, OpenHand, ClosedFist, Point, Pinch, ThumbDown, Custom }
 
+    /// <summary>
+    /// Handedness assumption for palm-orientation validation.
+    /// Auto skips the check when MediaPipe handedness is unavailable.
+    /// </summary>
+    public enum HandednessAssumption { Right, Left, Auto }
+
     public class GestureDetector : MonoBehaviour
     {
         [Header("Activation")]
         [Tooltip("If false, this detector will remain idle until EnableDetector() is called.")]
         [SerializeField] private bool _enabledByDefault = true;
         
+        [Header("Palm Orientation")]
+        [Tooltip("If true, OpenHand is only accepted when palm faces the camera (thumb outside palm).")]
+        [SerializeField] private bool _requirePalmFacingCamera = true;
+
+        [Tooltip("Handedness assumption for palm check. 'Right' means thumb should be on right side of index MCP in mirrored view.")]
+        [SerializeField] private HandednessAssumption _palmHandAssumption = HandednessAssumption.Auto;
+
         [Header("Filtering")]
         [SerializeField] private List<string> _enabledGestures = new List<string>();
         [SerializeField] private string _currentDetectedGesture = "None";
+        /// <summary>Debounced gesture (5 stable frames). Use for baseline capture and UI.</summary>
         public string CurrentDetectedGesture => _currentDetectedGesture;
+
+        /// <summary>
+        /// v7 Fix 5: Raw, un-debounced gesture classification for the current frame.
+        /// Use for judging/validation where immediate gesture awareness is needed.
+        /// The debounced CurrentDetectedGesture is better for baseline capture and UI.
+        /// </summary>
+        public string RawGesture { get; private set; } = "None";
 
         [Header("Debug Finger States")]
         [SerializeField] private string[] _currentFingerStates = new string[5];
@@ -51,6 +72,13 @@ namespace ARcadeRush.Hand
             _isProcessing = _enabledByDefault;
             LoadHeuristics();
             StartCoroutine(WaitForMediaPipe());
+
+            // Phase 1: Default to OpenHand + ClosedFist only for Simon game compatibility.
+            // Other minigames can call SetEnabledGestures() to override.
+            if (_enabledGestures.Count == 0)
+            {
+                SetEnabledGestures(new List<string> { "OpenHand", "ClosedFist" });
+            }
         }
 
         private System.Collections.IEnumerator WaitForMediaPipe()
@@ -75,6 +103,16 @@ namespace ARcadeRush.Hand
         }
 
         public void SetDetectionActive(bool active) => _isProcessing = active;
+
+        /// <summary>
+        /// Restricts gesture detection to only the specified gesture names.
+        /// Pass an empty list or null to allow all gestures.
+        /// </summary>
+        public void SetEnabledGestures(List<string> gestureNames)
+        {
+            _enabledGestures = gestureNames ?? new List<string>();
+            Debug.Log($"[GestureDetector] Enabled gestures: {(_enabledGestures.Count > 0 ? string.Join(", ", _enabledGestures) : "ALL")}");
+        }
 
         private void LoadHeuristics()
         {
@@ -127,6 +165,9 @@ namespace ARcadeRush.Hand
                 }
             }
 
+            // v7 Fix 5: expose raw gesture for immediate judging (no debounce lag)
+            RawGesture = currentGestureName;
+
             // Smoothing/Debouncing
             if (currentGestureName == _pendingGestureName) _gestureFrameCount++;
             else { _pendingGestureName = currentGestureName; _gestureFrameCount = 1; }
@@ -138,8 +179,13 @@ namespace ARcadeRush.Hand
                     if (_previousGestureName == "Pinch" && currentGestureName != "Pinch") OnPinchRelease?.Invoke();
                     
                     _currentDetectedGesture = currentGestureName;
-                    InvokeGestureEvent(currentGestureName);
-                    OnGestureDetected?.Invoke(currentGestureName);
+
+                    // Don't fire events for "None" — it's not a gesture, just absence.
+                    if (currentGestureName != "None")
+                    {
+                        InvokeGestureEvent(currentGestureName);
+                        OnGestureDetected?.Invoke(currentGestureName);
+                    }
                     _previousGestureName = currentGestureName;
                 }
             }
@@ -187,6 +233,14 @@ namespace ARcadeRush.Hand
                     if (!(landmarks[4].x > landmarks[5].x)) return false;
                     break;
             }
+
+            // Phase 1: Palm-orientation validation for OpenHand.
+            // If palm faces away from camera, treat as not-OpenHand.
+            if (_requirePalmFacingCamera && h.GestureName == "OpenHand")
+            {
+                if (!IsPalmFacingCamera(landmarks)) return false;
+            }
+
             return true;
         }
 
@@ -200,6 +254,14 @@ namespace ARcadeRush.Hand
 
         private void InvokeGestureEvent(string name)
         {
+            // Phase 1: Secondary whitelist guard — suppress events for non-whitelisted gestures
+            // even if they somehow pass heuristic matching.
+            if (_enabledGestures.Count > 0 && !_enabledGestures.Contains(name))
+            {
+                Debug.LogWarning($"[GestureDetector] InvokeGestureEvent blocked for '{name}' — not in enabled list.");
+                return;
+            }
+
             switch (name)
             {
                 case "OpenHand": OnOpenHand?.Invoke(); break;
@@ -207,6 +269,34 @@ namespace ARcadeRush.Hand
                 case "Point": OnPoint?.Invoke(); break;
                 case "Pinch": OnPinch?.Invoke(); break;
                 case "ThumbDown": OnThumbDown?.Invoke(); break;
+            }
+        }
+
+        /// <summary>
+        /// Validates that the palm is facing the camera (not the back of the hand).
+        /// Heuristic: For a right hand in mirrored webcam view, the thumb tip (4)
+        /// should be to the RIGHT of the index MCP (5) when palm faces camera.
+        /// For left hand, the opposite. Auto mode skips the check.
+        /// </summary>
+        private bool IsPalmFacingCamera(List<Vector2> landmarks)
+        {
+            if (landmarks == null || landmarks.Count < 6) return true; // no data, allow
+
+            float thumbX = landmarks[4].x;
+            float indexMcpX = landmarks[5].x;
+
+            switch (_palmHandAssumption)
+            {
+                case HandednessAssumption.Right:
+                    // Right hand facing camera (mirrored): thumb on RIGHT side
+                    return thumbX > indexMcpX;
+                case HandednessAssumption.Left:
+                    // Left hand facing camera (mirrored): thumb on LEFT side
+                    return thumbX < indexMcpX;
+                case HandednessAssumption.Auto:
+                default:
+                    // Can't determine without MediaPipe handedness — allow both
+                    return true;
             }
         }
     }

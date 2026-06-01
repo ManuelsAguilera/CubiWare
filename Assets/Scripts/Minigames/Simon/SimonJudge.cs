@@ -1,35 +1,60 @@
 using System;
 using UnityEngine;
 using ARcadeRush.Hand;
+using ARcadeRush.EmotionDetection;
 
 namespace ARcadeRush.Minigames.Simon
 {
     /// <summary>
-    /// Monitors GestureDetector during the response phase.
-    /// Phase 2: also monitors EmotionClassifier.
-    /// Reports any detected action to SimonGame for evaluation.
+    /// v7: Unified frame-by-frame evaluation of player input during the response phase.
+    /// Supports two round types — gesture+position and emotion-only.
     ///
-    /// IMPORTANT — GestureDetector behavior (verified from source):
-    ///   - Already has 5-frame debounce (_requiredStableFrames)
-    ///   - Fires OnGestureDetected only on TRANSITIONS (not every frame)
-    ///   - Fires "None" as a valid gesture transition
-    ///   - Exposes CurrentDetectedGesture for polling
+    /// Gesture rounds: Every frame reads CurrentDetectedGesture (GestureDetector) AND
+    /// RawZone (HandZoneClassifier) atomically — eliminates race condition between
+    /// gesture event timing and zone debounce. No event subscriptions.
     ///
-    /// This means SimonJudge does NOT need frame-level debounce, but MUST:
-    ///   1. Filter out "None" events
-    ///   2. Fire OnPlayerAction only ONCE per round (_actionAlreadyRegistered)
-    ///   3. Capture pre-existing gesture at monitoring start
+    /// Emotion rounds: Every frame polls EmotionGameBridge.IsMatchingEmotion()
+    /// directly — no timer gating, fires on first match.
+    ///
+    /// Key behaviors:
+    ///   1. Filter out "None" gestures and baseline (pre-held) gestures
+    ///   2. Fire OnPlayerAction only ONCE per round (_actionAlreadyRegistered guard)
+    ///   3. Zone validation uses RawZone (zero-lag, undebounced)
+    ///   4. Fire OnPlayerTricked when gesture+zone match but command didn't contain "simon dice"
     /// </summary>
     public class SimonJudge : MonoBehaviour
     {
         [SerializeField] private GestureDetector _gestureDetector;
-        // [SerializeField] private EmotionClassifier _emotionClassifier; // Phase 2
+
+        [Header("Position System (Phase 2)")]
+        [SerializeField] private HandZoneClassifier _handZoneClassifier;
+
+        [Header("Emotion System (v5)")]
+        [SerializeField] private EmotionGameBridge _emotionBridge;
+
+        [Header("Debug - Emotion (Read-Only)")]
+        [SerializeField] private string _currentDominantEmotion = "—";
+        [SerializeField] private string _targetEmotion = "—";
+        [SerializeField] private bool _faceDetected = false;
+        [SerializeField] private bool _bridgeConnected = false;
+        [SerializeField] private float _emotionConfidence = 0f;
 
         /// <summary>Fired when the player performs any detectable action (once per round).</summary>
         public event Action<string> OnPlayerAction;
 
         /// <summary>Fired when the player returned to neutral after performing an action.</summary>
         public event Action OnPlayerReturnedToNeutral;
+
+        /// <summary>
+        /// Fired when the player performed the correct gesture+zone but the command
+        /// did NOT contain "simon dice" — they got tricked into acting.
+        /// </summary>
+        public event Action<string> OnPlayerTricked;
+
+        /// <summary>
+        /// Fired when the player matches the target emotion (emotion rounds only).
+        /// </summary>
+        public event Action<string> OnEmotionMatched;
 
         private bool _isMonitoring;
 
@@ -39,37 +64,62 @@ namespace ARcadeRush.Minigames.Simon
         // v3 Fix (F5): baseline gesture at monitoring start
         private string _baselineGesture = "None";
 
+        // Phase 2: expected zone for this round
+        private HandZone _expectedZone = HandZone.None;
+
+        // Simon Dice trick flag: set by SimonGame before monitoring starts
+        private bool _commandContainsSimonDice;
+
+        // v6: expected gesture for continuous evaluation
+        private SimonGestureTarget _expectedGesture;
+        private bool _hasExpectedGesture;
+
+        // v5: emotion round state
+        private bool _isEmotionRound;
+        private SimonEmotionTarget _expectedEmotion;
+
         /// <summary>
-        /// Begin monitoring. Captures current gesture as baseline.
-        /// If player is already holding a non-None gesture, it becomes the baseline
-        /// and won't be reported — only a NEW gesture transition will fire.
+        /// v7: Begin monitoring. Captures current gesture as baseline.
+        /// Detection is entirely frame-by-frame in Update() — no event subscriptions.
+        /// For emotion rounds, ensures AutoInterval mode on the bridge.
         /// </summary>
         public void StartMonitoring()
         {
             _isMonitoring = true;
             _actionAlreadyRegistered = false;
 
-            // v3 Fix (F5): capture current gesture as baseline
-            _baselineGesture = _gestureDetector != null
-                ? _gestureDetector.CurrentDetectedGesture
-                : "None";
-
-            // Subscribe to events
-            if (_gestureDetector != null)
+            // Resolve HandZoneClassifier if not assigned in Inspector
+            if (_handZoneClassifier == null)
             {
-                _gestureDetector.OnGestureDetected += HandleGestureDetected;
+                _handZoneClassifier = FindAnyObjectByType<HandZoneClassifier>();
+            }
+
+            // Resolve EmotionGameBridge if not assigned in Inspector
+            if (_emotionBridge == null)
+            {
+                _emotionBridge = EmotionGameBridge.Instance;
+            }
+
+            if (_isEmotionRound)
+            {
+                // Emotion round: ensure AutoInterval mode for polling
+                if (_emotionBridge != null)
+                {
+                    _emotionBridge.SetMode(EmotionDetectionMode.AutoInterval);
+                }
+            }
+            else
+            {
+                // Gesture round: capture baseline gesture (pre-held gestures ignored)
+                _baselineGesture = _gestureDetector != null
+                    ? _gestureDetector.CurrentDetectedGesture
+                    : "None";
             }
         }
 
         public void StopMonitoring()
         {
             _isMonitoring = false;
-
-            // Unsubscribe from events
-            if (_gestureDetector != null)
-            {
-                _gestureDetector.OnGestureDetected -= HandleGestureDetected;
-            }
         }
 
         /// <summary>
@@ -79,34 +129,184 @@ namespace ARcadeRush.Minigames.Simon
         {
             _actionAlreadyRegistered = false;
             _baselineGesture = "None";
+            _expectedZone = HandZone.None;
+            _commandContainsSimonDice = false;
+            _isEmotionRound = false;
+            _expectedEmotion = SimonEmotionTarget.Neutral;
+            _hasExpectedGesture = false;
+            _expectedGesture = SimonGestureTarget.OpenHand;
         }
 
-        private void HandleGestureDetected(string gestureName)
+        /// <summary>
+        /// Sets the expected hand zone for this round.
+        /// Called by SimonGame before StartMonitoring().
+        /// </summary>
+        public void SetExpectedZone(HandZone zone)
         {
+            _expectedZone = zone;
+        }
+
+        /// <summary>
+        /// v6: Sets the expected gesture for this round.
+        /// Enables continuous evaluation in Update() to catch the race condition
+        /// where GestureDetector fires before HandZoneClassifier settles.
+        /// Called by SimonGame before StartMonitoring().
+        /// </summary>
+        public void SetExpectedGesture(SimonGestureTarget gesture)
+        {
+            _expectedGesture = gesture;
+            _hasExpectedGesture = true;
+        }
+
+        /// <summary>
+        /// Sets whether the command text contains "simon dice" (case-insensitive).
+        /// Called by SimonGame before StartMonitoring().
+        /// If false and the player performs the action, they get tricked (no points).
+        /// </summary>
+        public void SetSimonDiceFlag(bool containsSimonDice)
+        {
+            _commandContainsSimonDice = containsSimonDice;
+        }
+
+        /// <summary>
+        /// v5: Configures this round as an emotion-only round.
+        /// Called by SimonGame before StartMonitoring().
+        /// </summary>
+        public void SetEmotionRound(SimonEmotionTarget expectedEmotion)
+        {
+            _isEmotionRound = true;
+            _expectedEmotion = expectedEmotion;
+            _targetEmotion = SimonCommandGenerator.GetEmotionDisplayName(expectedEmotion);
+        }
+
+        /// <summary>
+        /// Called by SimonGame to relay the EmotionGameBridge reference.
+        /// </summary>
+        public void SetEmotionBridge(EmotionGameBridge bridge)
+        {
+            _emotionBridge = bridge;
+        }
+
+        /// <summary>
+        /// v5: Returns whether the current round is an emotion-only round.
+        /// </summary>
+        public bool IsEmotionRound => _isEmotionRound;
+
+        private void Update()
+        {
+            // ── Debug: always update inspector read-only fields when bridge is available ──
+            if (_emotionBridge != null)
+            {
+                _bridgeConnected = _emotionBridge.IsConnected;
+                _faceDetected = _emotionBridge.FaceDetected;
+                _currentDominantEmotion = _emotionBridge.GetCurrentDominantEmotion() ?? "—";
+                _emotionConfidence = _emotionBridge.Confidence;
+            }
+
             if (!_isMonitoring) return;
 
-            // v3 Fix (F4): filter out "None" — not a player action
-            if (gestureName == "None")
+            if (_isEmotionRound)
             {
-                // Player returned to neutral — only notify if they had acted
-                if (_actionAlreadyRegistered)
+                EvaluateEmotionRound();
+            }
+            else
+            {
+                EvaluateGestureRound();
+            }
+        }
+
+        /// <summary>
+        /// v7: Evaluates emotion round every frame — no timer gating.
+        /// Checks EmotionGameBridge directly each frame; fires event once via _actionAlreadyRegistered.
+        /// </summary>
+        /// <summary>
+        /// v7 Fix 4: Evaluates emotion round every frame — no timer gating.
+        /// When simon didn't say, ANY detected emotion triggers tricked (not just the target).
+        /// When simon DID say, only the expected emotion counts.
+        /// </summary>
+        private void EvaluateEmotionRound()
+        {
+            if (_actionAlreadyRegistered) return;
+            if (_emotionBridge == null || !_emotionBridge.IsConnected || !_emotionBridge.FaceDetected)
+                return;
+
+            // ── v7 Fix 4: When simon didn't say, ANY detected emotion = tricked ──
+            if (!_commandContainsSimonDice)
+            {
+                string currentEmotion = _emotionBridge.GetCurrentDominantEmotion();
+                if (!string.IsNullOrEmpty(currentEmotion) && _emotionBridge.Confidence >= 0.40f)
                 {
-                    OnPlayerReturnedToNeutral?.Invoke();
+                    _actionAlreadyRegistered = true;
+                    Debug.Log($"[SimonJudge] Player TRICKED (any emotion)! Detected '{currentEmotion}' but command didn't contain 'simon dice'.");
+                    OnPlayerTricked?.Invoke(currentEmotion);
                 }
                 return;
             }
 
-            // v3 Fix (F5): if gesture matches baseline, it's pre-held — ignore
-            if (gestureName == _baselineGesture)
+            // ── Simon DID say — check expected emotion ──
+            string targetEmotionStr = SimonCommandGenerator.GetEmotionEnglishName(_expectedEmotion);
+            if (string.IsNullOrEmpty(targetEmotionStr)) return;
+
+            if (!_emotionBridge.IsMatchingEmotion(targetEmotionStr))
+                return;
+
+            _actionAlreadyRegistered = true;
+
+            Debug.Log($"[SimonJudge] Emotion matched! Target: {_expectedEmotion}, " +
+                      $"Dominant: {_emotionBridge.GetCurrentDominantEmotion()}, " +
+                      $"Confidence: {_emotionBridge.Confidence:F2}");
+
+            OnEmotionMatched?.Invoke(targetEmotionStr);
+        }
+
+        /// <summary>
+        /// v7 Fix 4: Unified frame-by-frame gesture+zone evaluation.
+        /// Reads RawZone (undebounced) and CurrentDetectedGesture every frame atomically,
+        /// eliminating the race condition between GestureDetector events and zone debounce.
+        /// When simon didn't say, ANY gesture triggers tricked (not just the expected one).
+        /// When simon DID say, only the expected gesture+zone counts.
+        /// Fires event once via _actionAlreadyRegistered guard.
+        /// </summary>
+        private void EvaluateGestureRound()
+        {
+            if (!_hasExpectedGesture) return;
+            if (_actionAlreadyRegistered) return;
+            if (_gestureDetector == null) return;
+
+            // v7 Fix 5: use RawGesture for zero-lag detection (not debounced CurrentDetectedGesture)
+            string currentGesture = _gestureDetector.RawGesture;
+            if (string.IsNullOrEmpty(currentGesture) || currentGesture == "None")
+                return;
+            if (currentGesture == _baselineGesture)
+                return;
+
+            // ── v7 Fix 4: When simon didn't say, ANY gesture = tricked ──
+            if (!_commandContainsSimonDice)
             {
+                _actionAlreadyRegistered = true;
+                Debug.Log($"[SimonJudge] Player TRICKED (any gesture)! Gesture '{currentGesture}' but command didn't contain 'simon dice'.");
+                OnPlayerTricked?.Invoke(currentGesture);
                 return;
             }
 
-            // v3 Fix (F2): fire only ONCE per monitoring session
-            if (_actionAlreadyRegistered) return;
+            // ── Simon DID say — check expected gesture + zone ──
+            string expectedGestureStr = _expectedGesture.ToString();
+            if (!string.Equals(currentGesture, expectedGestureStr, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // Zone validation using RawZone — zero-lag, no debounce
+            if (_handZoneClassifier != null && _expectedZone != HandZone.None)
+            {
+                if (_handZoneClassifier.RawZone != _expectedZone)
+                    return;
+            }
+
+            // Both gesture and zone match atomically — fire!
             _actionAlreadyRegistered = true;
 
-            OnPlayerAction?.Invoke(gestureName);
+            Debug.Log($"[SimonJudge] Unified evaluation matched! Gesture='{currentGesture}', RawZone={_handZoneClassifier?.RawZone}, ExpectedZone={_expectedZone}");
+
+            OnPlayerAction?.Invoke(currentGesture);
         }
 
         // v3 Fix (F9): cleanup on destroy

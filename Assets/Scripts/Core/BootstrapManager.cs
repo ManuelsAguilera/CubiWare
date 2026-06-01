@@ -209,7 +209,7 @@ namespace CubiWare.Core
             if (!File.Exists(pythonExe))
             {
                 _logger.LogInfo("BootstrapManager", "Python venv not found. Running first-time setup (this may take a few minutes)...");
-                yield return StartCoroutine(EnsureVenvAsync(serverDir, pythonLinux));
+                yield return StartCoroutine(EnsureVenvAsync(serverDir, pythonExe));
 
                 // Re-resolve after creation
                 pythonExe = File.Exists(pythonLinux) ? pythonLinux : pythonWin;

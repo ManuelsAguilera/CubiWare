@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using ARcadeRush.Core;
 using ARcadeRush.UI;
 using ARcadeRush.Hand;
+using ARcadeRush.EmotionDetection;
 using CubiWare.Core;
 using CubiWare.Core.Interfaces;
 using CubiWare.Core.Logging;
@@ -21,10 +22,18 @@ namespace ARcadeRush.Minigames.Simon
     ///   - (F9)  OnDestroy unsubscribes from all events
     ///   - (F10) SceneIndex uses SceneManager.GetActiveScene().buildIndex
     ///   - (F13) GamePhase enum prevents re-entrant StartRound() calls
+    ///
+    /// v5: Emotion rounds alternate with gesture+position rounds.
+    ///   - Emotion rounds skip position validation entirely.
+    ///   - Judge polls EmotionGameBridge for emotion matching.
+    ///   - OnEmotionMatched event triggers scoring like OnPlayerAction.
     /// </summary>
     public class SimonGame : MonoBehaviour, IMiniGame
     {
         // ── Serialized Fields ──────────────────────────────────────────
+
+        [Header("Camera")]
+        [SerializeField] private UnityEngine.UI.RawImage _cameraDisplay;
 
         [Header("References")]
         [SerializeField] private SimonMenuManager _menuManager;
@@ -32,7 +41,13 @@ namespace ARcadeRush.Minigames.Simon
         [SerializeField] private SimonJudge _judge;
         [SerializeField] private SimonCommandGenerator _commandGenerator;
         [SerializeField] private GestureDetector _gestureDetector;
-        // [SerializeField] private EmotionClassifier _emotionClassifier; // Phase 2
+
+        [Header("Position System (Phase 2)")]
+        [SerializeField] private PositionInstructor _positionInstructor;
+        [SerializeField] private HandZoneClassifier _handZoneClassifier;
+
+        [Header("Emotion System (v5)")]
+        [SerializeField] private EmotionGameBridge _emotionBridge;
 
         [Header("Game Settings")]
         [SerializeField] private int _maxRounds = 5;
@@ -71,6 +86,7 @@ namespace ARcadeRush.Minigames.Simon
 
         private bool _hasGameEnded;
         private bool _isPaused;
+        private bool _timeoutDebugShown; // guard: only capture snapshot once per game
 
         // Timing
         private float _responseTimer;
@@ -95,6 +111,8 @@ namespace ARcadeRush.Minigames.Simon
             {
                 _judge.OnPlayerAction -= HandlePlayerAction;
                 _judge.OnPlayerReturnedToNeutral -= HandlePlayerNeutral;
+                _judge.OnPlayerTricked -= HandlePlayerTricked;
+                _judge.OnEmotionMatched -= HandleEmotionMatched;
             }
 
             if (_menuManager != null)
@@ -103,6 +121,12 @@ namespace ARcadeRush.Minigames.Simon
                 _menuManager.OnMainMenuClicked -= LoadMainMenu;
                 _menuManager.OnResumeClicked -= ResumeGame;
                 _menuManager.OnRestartClicked -= RestartGame;
+            }
+
+            // Cleanup position instructor arrows
+            if (_positionInstructor != null)
+            {
+                _positionInstructor.ClearInstruction();
             }
 
             // Stop all coroutines
@@ -128,11 +152,28 @@ namespace ARcadeRush.Minigames.Simon
                 _deps.GameManager.RegisterGame(this);
             }
 
+            // Resolve EmotionGameBridge if not assigned in Inspector
+            if (_emotionBridge == null)
+            {
+                _emotionBridge = EmotionGameBridge.Instance;
+            }
+
+            // Relay EmotionGameBridge to judge so it can poll emotions
+            if (_judge != null && _emotionBridge != null)
+            {
+                _judge.SetEmotionBridge(_emotionBridge);
+            }
+
+            // Setup camera feed display
+            SetupCamera();
+
             // Wire judge events
             if (_judge != null)
             {
                 _judge.OnPlayerAction += HandlePlayerAction;
                 _judge.OnPlayerReturnedToNeutral += HandlePlayerNeutral;
+                _judge.OnPlayerTricked += HandlePlayerTricked;
+                _judge.OnEmotionMatched += HandleEmotionMatched;
             }
 
             // Wire menu events
@@ -160,6 +201,48 @@ namespace ARcadeRush.Minigames.Simon
                 StartGame();
             }
 #endif
+        }
+
+        /// <summary>
+        /// Wires the camera feed to the RawImage display, following the
+        /// same pattern as EmotionTestGame.SetupCamera().
+        /// </summary>
+        private void SetupCamera()
+        {
+            if (_deps?.Camera == null)
+            {
+                _logger.LogWarning("SimonGame", "Camera not available in dependencies.");
+                return;
+            }
+
+            if (_cameraDisplay == null)
+            {
+                _logger.LogWarning("SimonGame", "Camera display RawImage not assigned in Inspector.");
+                return;
+            }
+
+            _deps.Camera.SetOutputImage(_cameraDisplay);
+
+            if (!_deps.Camera.IsPlaying)
+            {
+                // SetOutputImage() already wired texture + mirror uvRect.
+                _deps.Camera.StartCamera();
+                _logger.LogInfo("SimonGame", "Camera started for Simon scene.");
+            }
+            else
+            {
+                if (_deps.Camera.ActiveWebCamTexture != null)
+                {
+                    // Re-wire via SetOutputImage so it respects global mirror setting
+                    _deps.Camera.SetOutputImage(_cameraDisplay);
+                    _logger.LogInfo("SimonGame", "Camera already active, SetOutputImage reassigned.");
+                }
+                else
+                {
+                    _deps.Camera.StartCamera();
+                    _logger.LogInfo("SimonGame", "Camera active but texture null, restarting.");
+                }
+            }
         }
 
         public void OnEnd()
@@ -265,6 +348,8 @@ namespace ARcadeRush.Minigames.Simon
             _hud?.UpdateRoundCounter(displayRound, _maxRounds);
             _menuManager?.SetState(SimonMenuState.Playing);
             _hud?.HideDialogue();
+            _hud?.HideEmotionTarget();
+            _positionInstructor?.ClearInstruction();
 
             _logger.LogInfo("SimonGame", $"Starting round {displayRound}/{_maxRounds}. Generating command...");
 
@@ -279,6 +364,7 @@ namespace ARcadeRush.Minigames.Simon
                 OnCommandReady(new SimonCommand
                 {
                     SaysSimonDice = true,
+                    ContainsSimonDice = true,
                     ActionType = SimonActionType.Gesture,
                     GestureTarget = SimonGestureTarget.OpenHand,
                     DialogueText = "Simón dice: ¡mano abierta!"
@@ -295,8 +381,9 @@ namespace ARcadeRush.Minigames.Simon
             _currentCommand = cmd;
             _phase = GamePhase.DisplayCommand;
 
-            _logger.LogInfo("SimonGame", $"Command ready: saysSimonDice={cmd.SaysSimonDice}, " +
-                $"gesture={cmd.GestureTarget}, text=\"{cmd.DialogueText}\"");
+            string roundType = cmd.ActionType == SimonActionType.Emotion ? "EMOTION" : "GESTURE+POSITION";
+            _logger.LogInfo("SimonGame", $"Command ready [{roundType}]: saysSimonDice={cmd.SaysSimonDice}, " +
+                $"gesture={cmd.GestureTarget}, emotion={cmd.EmotionTarget}, text=\"{cmd.DialogueText}\"");
 
             // Show dialogue text
             _hud?.ShowDialogue(cmd.DialogueText, cmd.SaysSimonDice);
@@ -310,27 +397,61 @@ namespace ARcadeRush.Minigames.Simon
         {
             yield return new WaitForSeconds(_commandDisplayDuration);
 
-            // v3 Fix (F1): Timer starts NOW, after display phase and LLM latency
+            // v5: Emotion rounds show emotion HUD; gesture rounds show position arrows as visual guide.
+            // Timer starts IMMEDIATELY for both — position arrows are parallel hints, not blockers.
+            if (_currentCommand != null && _currentCommand.ActionType == SimonActionType.Emotion)
+            {
+                string emotionName = SimonCommandGenerator.GetEmotionDisplayName(_currentCommand.EmotionTarget);
+                _hud?.ShowEmotionTarget(emotionName);
+            }
+            else if (_positionInstructor != null && _currentCommand != null && _currentCommand.HasPositionTarget)
+            {
+                // Show position arrows in parallel (visual guide only — does NOT block timer)
+                _positionInstructor.InstructZone(_currentCommand.ExpectedZone);
+            }
+
             BeginResponsePhase();
         }
 
         /// <summary>
-        /// Begins the player response phase: starts monitoring + timer.
+        /// Begins the player response phase: starts monitoring + timer IMMEDIATELY.
+        /// The prompt is shown, the timer ticks down. If no valid action within
+        /// _responseTimePerRound seconds → timeout → game over.
+        /// If command doesn't say "simon dice" but player acts → tricked → game over.
+        /// v5: Emotion rounds configure judge differently (no zone, poll emotions).
         /// </summary>
         private void BeginResponsePhase()
         {
             _phase = GamePhase.WaitResponse;
 
-            _logger.LogInfo("SimonGame", $"Response phase started. {_responseTimePerRound}s timer running.");
+            string roundType = _currentCommand?.ActionType == SimonActionType.Emotion ? "EMOTION" : "GESTURE";
+            _logger.LogInfo("SimonGame", $"Response phase started [{roundType}]. {_responseTimePerRound}s timer running.");
 
-            // Start monitoring player gestures
+            // Configure judge for this round type
+            if (_judge != null && _currentCommand != null)
+            {
+                if (_currentCommand.ActionType == SimonActionType.Emotion)
+                {
+                    _judge.SetEmotionRound(_currentCommand.EmotionTarget);
+                    _judge.SetSimonDiceFlag(_currentCommand.ContainsSimonDice);
+                    _judge.SetExpectedZone(HandZone.None);
+                }
+                else
+                {
+                    _judge.SetExpectedGesture(_currentCommand.GestureTarget);
+                    _judge.SetExpectedZone(_currentCommand.ExpectedZone);
+                    _judge.SetSimonDiceFlag(_currentCommand.ContainsSimonDice);
+                }
+            }
+
+            // Start monitoring player gestures (or emotion polling)
             _judge?.StartMonitoring();
 
             // Reset timer display
             _responseTimer = _responseTimePerRound;
             _hud?.UpdateTimer(_responseTimer, _responseTimePerRound);
 
-            // Start response timer coroutine
+            // Start response timer coroutine — runs until action or timeout
             if (_responseTimerCo != null) StopCoroutine(_responseTimerCo);
             _responseTimerCo = StartCoroutine(CoResponseTimer());
         }
@@ -380,16 +501,80 @@ namespace ARcadeRush.Minigames.Simon
             // Stop timer
             if (_responseTimerCo != null) { StopCoroutine(_responseTimerCo); _responseTimerCo = null; }
 
-            JudgeRound(gestureName, timedOut: false);
+            // ── Clear UI immediately (symmetry with HandleEmotionMatched) ──
+            _positionInstructor?.ClearInstruction();
+            _hud?.HideEmotionTarget();
+
+            JudgeRound(gestureName, timedOut: false, isEmotion: false);
         }
 
         /// <summary>
         /// Called by SimonJudge when the player returns to neutral.
-        /// (Not used for judgment in Phase 1, but may be used in Phase 2.)
         /// </summary>
         private void HandlePlayerNeutral()
         {
             _logger.LogInfo("SimonGame", "Player returned to neutral.");
+        }
+
+        /// <summary>
+        /// Called by SimonJudge when the player performed the correct gesture+zone
+        /// but the command did NOT contain "simon dice" — they got tricked.
+        /// </summary>
+        private void HandlePlayerTricked(string gestureName)
+        {
+            if (_roundAlreadyJudged)
+            {
+                _logger.LogWarning("SimonGame", $"Tricked action '{gestureName}' ignored — round already judged.");
+                return;
+            }
+
+            if (_phase != GamePhase.WaitResponse)
+            {
+                _logger.LogWarning("SimonGame", $"Tricked action '{gestureName}' ignored — not in WaitResponse phase (current: {_phase}).");
+                return;
+            }
+
+            _logger.LogInfo("SimonGame", $"Player TRICKED! Gesture '{gestureName}' but command didn't say 'simon dice'.");
+            _roundAlreadyJudged = true;
+            _judge?.StopMonitoring();
+
+            // Stop timer
+            if (_responseTimerCo != null) { StopCoroutine(_responseTimerCo); _responseTimerCo = null; }
+
+            // Show tricked feedback — no scoring
+            ShowTrickedFeedback(gestureName);
+        }
+
+        /// <summary>
+        /// v5: Called by SimonJudge when the player matches the target emotion.
+        /// Similar to HandlePlayerAction but for emotion rounds.
+        /// </summary>
+        private void HandleEmotionMatched(string emotionName)
+        {
+            if (_roundAlreadyJudged)
+            {
+                _logger.LogWarning("SimonGame", $"Emotion match '{emotionName}' ignored — round already judged.");
+                return;
+            }
+
+            if (_phase != GamePhase.WaitResponse)
+            {
+                _logger.LogWarning("SimonGame", $"Emotion match '{emotionName}' ignored — not in WaitResponse phase (current: {_phase}).");
+                return;
+            }
+
+            _logger.LogInfo("SimonGame", $"Emotion matched: '{emotionName}'");
+            _roundAlreadyJudged = true;
+            _judge?.StopMonitoring();
+
+            // Stop timer
+            if (_responseTimerCo != null) { StopCoroutine(_responseTimerCo); _responseTimerCo = null; }
+
+            // Hide emotion HUD
+            _hud?.HideEmotionTarget();
+            _positionInstructor?.ClearInstruction();
+
+            JudgeRound(emotionName, timedOut: false, isEmotion: true);
         }
 
         /// <summary>
@@ -410,11 +595,47 @@ namespace ARcadeRush.Minigames.Simon
                 return;
             }
 
+            // ═══ ONE-SHOT TIMEOUT DEBUG SNAPSHOT ═══════════════════════════
+            if (!_timeoutDebugShown)
+            {
+                _timeoutDebugShown = true;
+                string zoneStr = _handZoneClassifier != null ? _handZoneClassifier.CurrentZone.ToString() : "no classifier";
+                string gestureStr = _gestureDetector != null ? _gestureDetector.CurrentDetectedGesture : "no detector";
+                string emotionStr = "no bridge";
+                string faceStr = "n/a";
+                string confStr = "n/a";
+                string connStr = "n/a";
+                if (_emotionBridge != null)
+                {
+                    emotionStr = _emotionBridge.GetCurrentDominantEmotion() ?? "null";
+                    faceStr = _emotionBridge.FaceDetected.ToString();
+                    confStr = _emotionBridge.Confidence.ToString("F3");
+                    connStr = _emotionBridge.IsConnected.ToString();
+                }
+                string expectedStr = _currentCommand != null
+                    ? $"type={_currentCommand.ActionType}, gesture={_currentCommand.GestureTarget}, emotion={_currentCommand.EmotionTarget}, zone={_currentCommand.ExpectedZone}, simonDice={_currentCommand.ContainsSimonDice}"
+                    : "no command";
+
+                Debug.LogWarning($"[SimonGame-TIMEOUT-SNAPSHOT]\n" +
+                    $"  ROUND CONTEXT: round={_currentRound + 1}/{_maxRounds}, expected=[{expectedStr}]\n" +
+                    $"  HAND ZONE:     {zoneStr}\n" +
+                    $"  DETECTED GESTURE: {gestureStr}\n" +
+                    $"  EMOTION:       dominant={emotionStr}, faceDetected={faceStr}, confidence={confStr}, connected={connStr}\n" +
+                    $"  TIMER:         remaining={_responseTimer:F2}s / {_responseTimePerRound}s\n" +
+                    $"  ── This snapshot fires ONCE per game session. ──");
+            }
+            // ═════════════════════════════════════════════════════════════════
+
             _logger.LogInfo("SimonGame", "Response timeout.");
             _roundAlreadyJudged = true;
             _judge?.StopMonitoring();
 
-            JudgeRound(playerAction: null, timedOut: true);
+            // Hide emotion HUD on timeout
+            _hud?.HideEmotionTarget();
+            _positionInstructor?.ClearInstruction();
+
+            bool isEmotion = _currentCommand?.ActionType == SimonActionType.Emotion;
+            JudgeRound(playerAction: null, timedOut: true, isEmotion: isEmotion);
         }
 
         // ── Judgment ────────────────────────────────────────────────────
@@ -422,17 +643,22 @@ namespace ARcadeRush.Minigames.Simon
         /// <summary>
         /// Applies the Simon Says truth table to determine the round result.
         ///
-        /// +--------------+------------------+---------------+
-        /// |SaysSimonDice | Player Action    | Result        |
-        /// +--------------+------------------+---------------+
-        /// | TRUE         | Correct gesture  | CORRECT       |
-        /// | TRUE         | Wrong gesture    | WrongGesture  |
-        /// | TRUE         | Nothing/timeout  | Timeout       |
-        /// | FALSE        | Stayed neutral   | CORRECT       |
-        /// | FALSE        | Did ANY gesture  | WrongAction   |
-        /// +--------------+------------------+---------------+
+        /// +------------------+------------------+---------------+
+        /// |ContainsSimonDice | Player Action    | Result        |
+        /// +------------------+------------------+---------------+
+        /// | TRUE             | Correct gesture  | CORRECT       |
+        /// | TRUE             | Wrong gesture    | WrongGesture  |
+        /// | TRUE             | Nothing/timeout  | Timeout       |
+        /// | FALSE            | Stayed neutral   | CORRECT       |
+        /// | FALSE            | Did ANY gesture  | WrongAction   |
+        /// +------------------+------------------+---------------+
+        ///
+        /// v5: Emotion rounds use the same truth table.
+        /// NOTE: Tricked detection (player acts when ContainsSimonDice=false) is
+        /// handled in HandlePlayerTricked BEFORE this method is called.
+        /// Emotion match detection is handled in HandleEmotionMatched.
         /// </summary>
-        private void JudgeRound(string playerAction, bool timedOut)
+        private void JudgeRound(string playerAction, bool timedOut, bool isEmotion)
         {
             _phase = GamePhase.Judging;
 
@@ -443,12 +669,26 @@ namespace ARcadeRush.Minigames.Simon
                 _logger.LogWarning("SimonGame", "JudgeRound called with null command — treating as timeout.");
                 result = RoundResult.Timeout;
             }
-            else if (_currentCommand.SaysSimonDice)
+            else if (_currentCommand.ContainsSimonDice)
             {
-                // Simón dice — player MUST obey
+                // Command contains "simon dice" — player MUST obey
                 if (timedOut)
                 {
                     result = RoundResult.Timeout;
+                }
+                else if (isEmotion)
+                {
+                    // Emotion round: check if matched emotion matches expected
+                    // v7: use English name to match the value passed by HandleEmotionMatched
+                    string expectedEmotion = SimonCommandGenerator.GetEmotionEnglishName(_currentCommand.EmotionTarget);
+                    if (string.Equals(playerAction, expectedEmotion, StringComparison.OrdinalIgnoreCase))
+                    {
+                        result = RoundResult.Correct;
+                    }
+                    else
+                    {
+                        result = RoundResult.WrongGesture; // "wrong emotion" uses same enum
+                    }
                 }
                 else
                 {
@@ -465,7 +705,9 @@ namespace ARcadeRush.Minigames.Simon
             }
             else
             {
-                // Simón did NOT say "Simón dice" — player must stay neutral
+                // Command did NOT contain "simon dice" — player must stay neutral
+                // Player action is only possible here if they did the WRONG thing
+                // (correct action with no simon dice is caught by HandlePlayerTricked/HandleEmotionMatched → trick check)
                 if (timedOut)
                 {
                     // Player did nothing = correct
@@ -473,14 +715,14 @@ namespace ARcadeRush.Minigames.Simon
                 }
                 else
                 {
-                    // Player did something = wrong
+                    // Player did something but wrong action — still wrong
                     result = RoundResult.WrongAction;
                 }
             }
 
-            _logger.LogInfo("SimonGame", $"Judgment: saysSimonDice={_currentCommand?.SaysSimonDice}, " +
-                $"expected={_currentCommand?.GestureTarget}, playerAction={playerAction ?? "timeout"}, " +
-                $"result={result}");
+            _logger.LogInfo("SimonGame", $"Judgment: containsSimonDice={_currentCommand?.ContainsSimonDice}, " +
+                $"isEmotion={isEmotion}, expected={_currentCommand?.GestureTarget}/{_currentCommand?.EmotionTarget}, " +
+                $"playerAction={playerAction ?? "timeout"}, result={result}");
 
             // Process result
             if (result == RoundResult.Correct)
@@ -491,6 +733,39 @@ namespace ARcadeRush.Minigames.Simon
 
             // Show feedback
             ShowFeedback(result);
+        }
+
+        private void ShowTrickedFeedback(string gestureName)
+        {
+            _phase = GamePhase.Judging;
+
+            _logger.LogInfo("SimonGame", $"Tricked! Player did '{gestureName}' but command didn't say 'simon dice'.");
+
+            // Hide any emotion HUD
+            _hud?.HideEmotionTarget();
+            _positionInstructor?.ClearInstruction();
+
+            // Show "tricked" HUD message
+            _hud?.ShowTrickedMessage();
+
+            // Do NOT increment score, do NOT increment round count for tricked
+            // Show feedback then move to game over (trick = loss)
+            if (_menuManager != null)
+            {
+                _feedbackCo = StartCoroutine(_menuManager.ShowFeedback(false, _feedbackDuration));
+            }
+
+            StartCoroutine(CoAfterTricked());
+        }
+
+        private IEnumerator CoAfterTricked()
+        {
+            yield return new WaitForSeconds(_feedbackDuration);
+            _hud?.HideDialogue();
+            _positionInstructor?.ClearInstruction();
+
+            // Being tricked = game over
+            EndGame(won: false, reason: "¡Te engañó Simón! Hiciste el gesto cuando no debías");
         }
 
         private void ShowFeedback(RoundResult result)
@@ -510,8 +785,10 @@ namespace ARcadeRush.Minigames.Simon
         {
             yield return new WaitForSeconds(_feedbackDuration);
 
-            // Hide dialogue before next round or end screen
+            // Hide dialogue, emotion HUD, and position arrows before next round or end screen
             _hud?.HideDialogue();
+            _hud?.HideEmotionTarget();
+            _positionInstructor?.ClearInstruction();
 
             if (result == RoundResult.Correct)
             {
@@ -555,6 +832,8 @@ namespace ARcadeRush.Minigames.Simon
 
             _judge?.StopMonitoring();
             _hud?.HideDialogue();
+            _hud?.HideEmotionTarget();
+            _positionInstructor?.ClearInstruction();
 
             // Report session data
             if (_deps?.GameManager != null)
@@ -625,6 +904,7 @@ namespace ARcadeRush.Minigames.Simon
             _correctStreak = 0;
             _roundAlreadyJudged = false;
             _isPaused = false;
+            _timeoutDebugShown = false;
 
             if (_commandGenerator != null)
             {
@@ -663,17 +943,21 @@ namespace ARcadeRush.Minigames.Simon
         /// <summary>
         /// Internal state tracked by SimonGame to prevent re-entrant calls.
         /// NOT the same as SimonMenuState (which controls UI panels).
+        ///
+        /// Round flow (v5):
+        /// Generating → DisplayCommand → WaitResponse → Judging → Feedback
+        /// Timer starts IMMEDIATELY after DisplayCommand. Position arrows are parallel visual hints.
         /// </summary>
         private enum GamePhase
         {
-            Idle,           // Before game starts or after game ends
-            Countdown,      // Countdown animation running
-            Generating,     // Waiting for LLM/command generation (v3 F13)
-            DisplayCommand, // Command text shown, player reading
-            WaitResponse,   // Timer ticking, monitoring player input
-            Judging,        // Evaluating round result
-            Feedback,       // Showing correct/wrong feedback
-            Ended           // Game over or victory
+            Idle,               // Before game starts or after game ends
+            Countdown,          // Countdown animation running
+            Generating,         // Waiting for LLM/command generation
+            DisplayCommand,     // Command text shown, player reading
+            WaitResponse,       // Timer ticking, monitoring player input
+            Judging,            // Evaluating round result
+            Feedback,           // Showing correct/wrong feedback
+            Ended               // Game over or victory
         }
     }
 }

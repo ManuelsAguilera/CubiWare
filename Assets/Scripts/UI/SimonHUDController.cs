@@ -86,6 +86,7 @@ namespace ARcadeRush.UI
         public void ResetAll()
         {
             HideDialogue();
+            HideEmotionTarget();
 
             if (_roundCounterText != null)
                 _roundCounterText.text = "Ronda 0 / 0";
@@ -95,6 +96,71 @@ namespace ARcadeRush.UI
 
             if (_timerText != null)
                 _timerText.text = "0.0s";
+        }
+
+        // ── Emotion HUD (v5 — active for alternating emotion rounds) ──
+
+        [Header("Emotion HUD (v5)")]
+        [SerializeField] private GameObject _emotionTargetPanel;
+        [SerializeField] private TMP_Text _emotionTargetText;
+        [SerializeField] private TMP_Text _emotionMismatchText;
+
+        /// <summary>
+        /// Shows the expected emotion to the player during emotion-only rounds.
+        /// v5: Re-activated for alternating emotion rounds.
+        /// </summary>
+        public void ShowEmotionTarget(string emotionDisplayName)
+        {
+            if (_emotionTargetPanel != null)
+                _emotionTargetPanel.SetActive(true);
+
+            if (_emotionTargetText != null)
+                _emotionTargetText.text = $"Muestra: {emotionDisplayName}";
+        }
+
+        /// <summary>
+        /// Hides the emotion target display (called at end of round, timeout, etc.).
+        /// </summary>
+        public void HideEmotionTarget()
+        {
+            if (_emotionTargetPanel != null)
+                _emotionTargetPanel.SetActive(false);
+
+            if (_emotionTargetText != null)
+                _emotionTargetText.text = string.Empty;
+
+            if (_emotionMismatchText != null)
+                _emotionMismatchText.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Shows a brief emotion mismatch message to the player.
+        /// </summary>
+        public void ShowEmotionMismatch(string expected, string current)
+        {
+            if (_emotionMismatchText != null)
+            {
+                _emotionMismatchText.text = $"Se esperaba '{expected}', se detectó '{current}'";
+                _emotionMismatchText.gameObject.SetActive(true);
+            }
+        }
+
+        // ── Tricked Feedback ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Shows a "tricked" message when the player performed an action
+        /// but the command did NOT contain "simon dice".
+        /// </summary>
+        public void ShowTrickedMessage()
+        {
+            if (_dialogueText != null)
+            {
+                _dialogueText.text = "¡Te engañó Simón! No dijo 'Simón dice'...";
+                _dialogueText.color = new Color(1f, 0.3f, 0.3f); // red-ish
+            }
+
+            if (_dialoguePanel != null)
+                _dialoguePanel.SetActive(true);
         }
     }
 }
