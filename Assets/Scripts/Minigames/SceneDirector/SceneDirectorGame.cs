@@ -58,7 +58,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private bool _editorSimulation = false;
 
         [Header("Start Menu / Game Over Panel")]
-        [SerializeField] private CanvasGroup              _startMenuPanel;
+        [SerializeField] private GameObject               _startMenuPanel;
         [SerializeField] private TextMeshProUGUI           _startMenuTitle;
         [SerializeField] private TextMeshProUGUI           _startMenuSubtitle;
         [SerializeField] private UnityEngine.UI.Button    _startMenuPlayBtn;
@@ -243,13 +243,11 @@ namespace ARcadeRush.Minigames.SceneDirector
             _phase = GamePhase.StartMenu;
             if (_startMenuPanel == null) { HandlePlayClicked(); return; }
 
-            if (_startMenuTitle != null)     _startMenuTitle.text = "DIRECTOR DE ESCENA";
-            if (_startMenuSubtitle != null)  { _startMenuSubtitle.text = "Expresa las emociones del guión"; _startMenuSubtitle.gameObject.SetActive(true); }
+            if (_startMenuTitle != null)    _startMenuTitle.text = "DIRECTOR DE ESCENA";
+            if (_startMenuSubtitle != null) { _startMenuSubtitle.text = "Expresa las emociones del guion"; _startMenuSubtitle.gameObject.SetActive(true); }
             _startMenuPlayBtn?.gameObject.SetActive(true);
 
-            _startMenuPanel.alpha          = 1f;
-            _startMenuPanel.interactable   = true;
-            _startMenuPanel.blocksRaycasts = true;
+            _startMenuPanel.SetActive(true);   // SetActive — igual que Shooter/HUDController
         }
 
         private void ShowGameOver()
@@ -261,17 +259,12 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (_startMenuSubtitle != null) _startMenuSubtitle.gameObject.SetActive(false);
             _startMenuPlayBtn?.gameObject.SetActive(false);
 
-            _startMenuPanel.alpha          = 1f;
-            _startMenuPanel.interactable   = true;
-            _startMenuPanel.blocksRaycasts = true;
+            _startMenuPanel.SetActive(true);
         }
 
         private void HideStartMenuPanel()
         {
-            if (_startMenuPanel == null) return;
-            _startMenuPanel.alpha          = 0f;
-            _startMenuPanel.interactable   = false;
-            _startMenuPanel.blocksRaycasts = false;
+            _startMenuPanel?.SetActive(false);
         }
 
         private void HandlePlayClicked()
