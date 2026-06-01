@@ -57,6 +57,13 @@ namespace ARcadeRush.Minigames.SceneDirector
         [Tooltip("When true, keyboard H/S/A/N drives SimulatedEmotion (editor only).")]
         [SerializeField] private bool _editorSimulation = false;
 
+        [Header("Start Menu / Game Over Panel")]
+        [SerializeField] private CanvasGroup              _startMenuPanel;
+        [SerializeField] private TextMeshProUGUI           _startMenuTitle;
+        [SerializeField] private TextMeshProUGUI           _startMenuSubtitle;
+        [SerializeField] private UnityEngine.UI.Button    _startMenuPlayBtn;
+        [SerializeField] private UnityEngine.UI.Button    _startMenuExitBtn;
+
         [Header("UI References — Overlays")]
         [SerializeField] private CanvasGroup _countdownOverlay;
         [SerializeField] private TextMeshProUGUI _countdownText;
@@ -75,6 +82,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         private enum GamePhase
         {
             Idle,
+            StartMenu,
             Bootstrapping,
             CurtainOpening,
             CountdownOverlay,
@@ -133,27 +141,19 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             WireEvents();
 
-            ServiceLogger.Instance.LogInfo(LogServiceName, "OnStart — opening curtain.");
+            _startMenuPlayBtn?.onClick.AddListener(HandlePlayClicked);
+            _startMenuExitBtn?.onClick.AddListener(HandleExitClicked);
 
-            // Start ambient crowd murmur
-
-            // Guard: ScenarioController might be unavailable during editor testing
-            if (ScenarioController.Instance != null)
-            {
-                _phase = GamePhase.CurtainOpening;
-                ScenarioController.Instance.Open();
-            }
-            else
-            {
-                ServiceLogger.Instance.LogWarning(LogServiceName,
-                    "ScenarioController.Instance is null — skipping curtain, jumping to gameplay.");
-                StartCoroutine(GenerateSequenceAsync());
-            }
+            ServiceLogger.Instance.LogInfo(LogServiceName, "OnStart — showing start menu.");
+            ShowStartMenu();
         }
 
         public void OnEnd()
         {
             _playingUpdateActive = false;
+
+            _startMenuPlayBtn?.onClick.RemoveListener(HandlePlayClicked);
+            _startMenuExitBtn?.onClick.RemoveListener(HandleExitClicked);
 
             if (_bridge != null)
                 _bridge.SetEnabled(false);
@@ -235,6 +235,71 @@ namespace ARcadeRush.Minigames.SceneDirector
         }
 
         // ── Event Wiring ──────────────────────────────────────────────────────────
+
+        // ── Start Menu / Game Over ────────────────────────────────────────────────
+
+        private void ShowStartMenu()
+        {
+            _phase = GamePhase.StartMenu;
+            if (_startMenuPanel == null) { HandlePlayClicked(); return; }
+
+            if (_startMenuTitle != null)     _startMenuTitle.text = "DIRECTOR DE ESCENA";
+            if (_startMenuSubtitle != null)  { _startMenuSubtitle.text = "Expresa las emociones del guión"; _startMenuSubtitle.gameObject.SetActive(true); }
+            _startMenuPlayBtn?.gameObject.SetActive(true);
+
+            _startMenuPanel.alpha          = 1f;
+            _startMenuPanel.interactable   = true;
+            _startMenuPanel.blocksRaycasts = true;
+        }
+
+        private void ShowGameOver()
+        {
+            _phase = GamePhase.StartMenu;
+            if (_startMenuPanel == null) { OnEnd(); return; }
+
+            if (_startMenuTitle != null)    _startMenuTitle.text = "GAME OVER";
+            if (_startMenuSubtitle != null) _startMenuSubtitle.gameObject.SetActive(false);
+            _startMenuPlayBtn?.gameObject.SetActive(false);
+
+            _startMenuPanel.alpha          = 1f;
+            _startMenuPanel.interactable   = true;
+            _startMenuPanel.blocksRaycasts = true;
+        }
+
+        private void HideStartMenuPanel()
+        {
+            if (_startMenuPanel == null) return;
+            _startMenuPanel.alpha          = 0f;
+            _startMenuPanel.interactable   = false;
+            _startMenuPanel.blocksRaycasts = false;
+        }
+
+        private void HandlePlayClicked()
+        {
+            HideStartMenuPanel();
+            _phase = GamePhase.Bootstrapping;
+
+            if (_bridge != null && !_editorSimulation)
+                _bridge.SetEnabled(true);
+
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Play clicked — opening curtain.");
+
+            if (ScenarioController.Instance != null)
+            {
+                _phase = GamePhase.CurtainOpening;
+                ScenarioController.Instance.Open();
+            }
+            else
+            {
+                ServiceLogger.Instance.LogWarning(LogServiceName,
+                    "ScenarioController null — jumping to gameplay.");
+                StartCoroutine(GenerateSequenceAsync());
+            }
+        }
+
+        private void HandleExitClicked() => OnEnd();
+
+        // ── Events ────────────────────────────────────────────────────────────────
 
         private void WireEvents()
         {
@@ -627,17 +692,24 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             ShowEvaluationText(won, evaluation);
 
-            // Populate ResultsPanel data (shown after curtain closes)
-            PopulateResultsPanel(won, evaluation);
-
             _phase = GamePhase.CurtainClosing;
             ServiceLogger.Instance.LogInfo(LogServiceName, "Closing curtain.");
 
-            // Audio removed — no sting/BGM
-
             TomatoSplatController.Instance?.ClearAllSplats();
 
-            ScenarioController.Instance?.Close();
+            if (!won)
+            {
+                // LOST: skip results panel, show simple Game Over screen after curtain closes
+                PopulateResultsPanel(won, evaluation); // still records score
+                ScenarioController.Instance?.Close();
+                // OnCurtainClose will be intercepted below
+            }
+            else
+            {
+                // WON: full results flow
+                PopulateResultsPanel(won, evaluation);
+                ScenarioController.Instance?.Close();
+            }
         }
 
         private void OnCurtainClose()
@@ -645,12 +717,24 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (_resultsShowing) return;
             _resultsShowing = true;
 
-            ServiceLogger.Instance.LogInfo(LogServiceName, "Curtain closed — showing results.");
-            _phase = GamePhase.Results;
+            ServiceLogger.Instance.LogInfo(LogServiceName, "Curtain closed.");
 
-            // Fade in ResultsPanel over closed curtain
-            if (_resultsPanel != null)
-                StartCoroutine(FadeCanvasGroup(_resultsPanel, 0f, 1f, 0.5f));
+            // Check the headline to decide if this was a win or loss
+            bool wasWon = _resultsHeadline != null &&
+                (_resultsHeadline.text == "¡OVACIÓN DE PIE!" || _resultsHeadline.text == "¡BRAVO!");
+
+            if (wasWon)
+            {
+                _phase = GamePhase.Results;
+                ServiceLogger.Instance.LogInfo(LogServiceName, "Showing results panel (win).");
+                if (_resultsPanel != null)
+                    StartCoroutine(FadeCanvasGroup(_resultsPanel, 0f, 1f, 0.5f));
+            }
+            else
+            {
+                ServiceLogger.Instance.LogInfo(LogServiceName, "Showing game over screen (loss).");
+                ShowGameOver();
+            }
         }
 
         // ── Results Panel ──────────────────────────────────────────────────────────
