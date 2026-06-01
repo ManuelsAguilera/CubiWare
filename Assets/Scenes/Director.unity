@@ -369,7 +369,7 @@ MonoBehaviour:
   _stageCamera: {fileID: 931144193}
   _maskDepth: 1.5
   _scaleMultiplier: 3.5
-  _reader: {fileID: 689487564}
+  _reader: {fileID: 0}
 --- !u!4 &172705206
 Transform:
   m_ObjectHideFlags: 0
@@ -6565,7 +6565,7 @@ MonoBehaviour:
   _endRoundDelayWin: 3
   _endRoundDelayLose: 2
   _pointsPerElement: 100
-  _useLLM: 1
+  _useLLM: 0
   _editorSimulation: 1
   _countdownOverlay: {fileID: 1780067198}
   _countdownText: {fileID: 1188739800}

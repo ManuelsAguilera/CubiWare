@@ -44,7 +44,6 @@ namespace ARcadeRush.Minigames.SceneDirector
         // ── Inspector — Scene ─────────────────────────────────────────────────────
         [Header("Scene Settings")]
         [SerializeField] private int   _sceneIndex           = 5;
-        [SerializeField] private int   _mainMenuSceneIndex   = 1;
         [SerializeField] private float _betweenElementDelay  = 1.5f;
         [SerializeField] private float _endRoundDelayWin     = 3.0f;  // long enough for audience applaud (2.5s)
         [SerializeField] private float _endRoundDelayLose    = 2.0f;
@@ -137,14 +136,12 @@ namespace ARcadeRush.Minigames.SceneDirector
             ServiceLogger.Instance.LogInfo(LogServiceName, "OnStart — opening curtain.");
 
             // Start ambient crowd murmur
-            SceneDirectorAudio.Instance?.StartAmbient(0.3f);
 
             // Guard: ScenarioController might be unavailable during editor testing
             if (ScenarioController.Instance != null)
             {
                 _phase = GamePhase.CurtainOpening;
                 ScenarioController.Instance.Open();
-                SceneDirectorAudio.Instance?.PlayCurtainOpen();
             }
             else
             {
@@ -168,7 +165,8 @@ namespace ARcadeRush.Minigames.SceneDirector
             _deps?.GameManager?.EndGame();
 
             if (SceneLoader.Instance != null)
-                SceneLoader.Instance.LoadSceneDelayed(_mainMenuSceneIndex, 0.5f);
+                UnityEngine.PlayerPrefs.SetInt("ReturnToGameSelector", 1);
+            SceneLoader.Instance?.LoadSceneAsync("MainMenu");
         }
 
         // ── Unity Lifecycle ─────────────────────────────────────────────────────
@@ -342,9 +340,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         private void OnCountdownOverlayTick(string numberText)
         {
             if (numberText == "¡ACCIÓN!")
-                SceneDirectorAudio.Instance?.PlayCountdownGo();
             else
-                SceneDirectorAudio.Instance?.PlayCountdownTick();
         }
 
         /// <summary>
@@ -420,7 +416,6 @@ namespace ARcadeRush.Minigames.SceneDirector
             ScriptController.Instance?.HideIntro();
 
             // Start BGM and transition ambient
-            SceneDirectorAudio.Instance?.StartBGM();
 
             _phase = GamePhase.Playing;
         }
@@ -524,8 +519,6 @@ namespace ARcadeRush.Minigames.SceneDirector
                 ServiceLogger.Instance.LogInfo(LogServiceName,
                     $"Element PASSED — {points} pts (×{multiplier:F1}, {percentUsed:P0} of time)");
 
-                SceneDirectorAudio.Instance?.PlayCorrectChime();
-                SceneDirectorAudio.Instance?.PlayApplause();
                 AudienceController.Instance?.ReactPositive();
                 ScriptController.Instance.PassCurrentElement();
                 // If more elements remain, OnElementStarted fires → ActivateElementWithDelay handles it.
@@ -535,9 +528,6 @@ namespace ARcadeRush.Minigames.SceneDirector
             {
                 ServiceLogger.Instance.LogInfo(LogServiceName, "Element FAILED.");
 
-                SceneDirectorAudio.Instance?.PlayWrongBuzzer();
-                SceneDirectorAudio.Instance?.PlayBoo();
-                SceneDirectorAudio.Instance?.PlayTomatoSplat();
                 TomatoSplatController.Instance?.SplatBurst(3);
                 ScriptController.Instance.FailCurrentElement();
                 AudienceController.Instance?.ReactNegative();
@@ -646,15 +636,11 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             // Play win/lose sting and stop BGM
             if (won)
-                SceneDirectorAudio.Instance?.PlayStingWin();
             else
-                SceneDirectorAudio.Instance?.PlayStingLose();
 
-            SceneDirectorAudio.Instance?.StopAmbient(1.5f);
             TomatoSplatController.Instance?.ClearAllSplats();
 
             ScenarioController.Instance?.Close();
-            SceneDirectorAudio.Instance?.PlayCurtainClose();
         }
 
         private void OnCurtainClose()
