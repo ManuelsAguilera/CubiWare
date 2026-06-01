@@ -339,8 +339,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// <summary>Audio hook: called each time the countdown overlay number changes.</summary>
         private void OnCountdownOverlayTick(string numberText)
         {
-            if (numberText == "¡ACCIÓN!")
-            else
+            // Audio removed — no-op
         }
 
         /// <summary>
@@ -634,9 +633,7 @@ namespace ARcadeRush.Minigames.SceneDirector
             _phase = GamePhase.CurtainClosing;
             ServiceLogger.Instance.LogInfo(LogServiceName, "Closing curtain.");
 
-            // Play win/lose sting and stop BGM
-            if (won)
-            else
+            // Audio removed — no sting/BGM
 
             TomatoSplatController.Instance?.ClearAllSplats();
 
