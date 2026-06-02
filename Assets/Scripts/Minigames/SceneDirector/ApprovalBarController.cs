@@ -80,6 +80,10 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            // Code-based discovery if Inspector wiring is missing
+            if (_fillBar == null)      _fillBar      = GameObject.Find("ApprovalBarFill")?.GetComponent<Image>();
+            if (_feedbackText == null) _feedbackText = GameObject.Find("FeedbackText")?.GetComponent<TextMeshProUGUI>();
         }
 
         private void OnDestroy()

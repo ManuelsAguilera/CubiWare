@@ -51,6 +51,10 @@ namespace ARcadeRush.Minigames.SceneDirector
                 return;
             }
             Instance = this;
+
+            // Code-based discovery if Inspector wiring is missing
+            if (_animator == null)     _animator     = GetComponent<Animator>();
+            if (_dialogueText == null) _dialogueText = GameObject.Find("DialogueBubble")?.GetComponent<TMPro.TextMeshProUGUI>();
         }
 
         private void OnDestroy()

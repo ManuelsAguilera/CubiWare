@@ -86,6 +86,13 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            // Code-based discovery if Inspector wiring is missing
+            if (_currentEmotionText == null) _currentEmotionText = GameObject.Find("EmotionText")?.GetComponent<TextMeshProUGUI>();
+            if (_nextEmotionText == null)    _nextEmotionText    = GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>();
+            if (_progressText == null)       _progressText       = GameObject.Find("ProgressText")?.GetComponent<TextMeshProUGUI>();
+            if (_emotionIcon == null)        _emotionIcon        = GameObject.Find("EmotionIcon")?.GetComponent<Image>();
+            if (_introText == null)          _introText          = GameObject.Find("IntroText")?.GetComponent<TextMeshProUGUI>();
         }
 
         private void OnDestroy()
