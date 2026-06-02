@@ -114,7 +114,8 @@ namespace ARcadeRush.Minigames.SceneDirector
             HideCanvasGroup(_countdownOverlay);
             HideCanvasGroup(_feedbackOverlay);
 
-            // Wire subsystem events
+            // Wire subsystem events — Scenario events wired in OnPlayClicked
+            // to prevent the Animator from auto-firing OnOpenComplete on scene load.
             if (Bar      != null) { Bar.OnBarFilled    += OnBarFilled;     Bar.OnBarEmptied   += OnBarEmptied;   }
             if (Countdown!= null) { Countdown.OnCountdownExpired += OnCountdownExpired; }
             if (Script   != null)
@@ -123,11 +124,6 @@ namespace ARcadeRush.Minigames.SceneDirector
                 Script.OnElementPassed   += OnElementPassed;
                 Script.OnElementFailed   += OnElementFailed;
                 Script.OnSequenceComplete += OnSequenceComplete;
-            }
-            if (Scenario != null)
-            {
-                Scenario.OnOpenComplete  += OnCurtainOpen;
-                Scenario.OnCloseComplete += OnCurtainClose;
             }
 
             ServiceLogger.Instance.LogInfo(LOG, "OnStart — showing start menu.");
@@ -206,6 +202,17 @@ namespace ARcadeRush.Minigames.SceneDirector
             _startMenuPanel?.SetActive(false);
             _gamePanel?.SetActive(true);
             _state = State.Playing;
+
+            // Wire Scenario events here (not in OnStart) to prevent the Animator
+            // from auto-firing OnOpenComplete before the user clicks Play.
+            if (Scenario != null)
+            {
+                Scenario.OnOpenComplete  -= OnCurtainOpen;   // guard against double-sub
+                Scenario.OnCloseComplete -= OnCurtainClose;
+                Scenario.OnOpenComplete  += OnCurtainOpen;
+                Scenario.OnCloseComplete += OnCurtainClose;
+            }
+
             ServiceLogger.Instance.LogInfo(LOG, "Play clicked — opening curtain.");
             Scenario?.Open();
         }
