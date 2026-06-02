@@ -200,6 +200,7 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private void OnPlayClicked()
         {
+            Debug.Log($"[DirectorGame] OnPlayClicked — panel null={_startMenuPanel == null}");
             _startMenuPanel?.SetActive(false);
             _gamePanel?.SetActive(true);
             _state = State.Playing;
@@ -454,11 +455,13 @@ namespace ARcadeRush.Minigames.SceneDirector
             float size, Color color, Vector2 anchorMin, Vector2 anchorMax)
         {
             var go = new GameObject(name);
-            go.transform.SetParent(parent.transform, false);
             go.layer = 5;
+            // RectTransform BEFORE SetParent
             var rt = go.AddComponent<RectTransform>();
+            go.transform.SetParent(parent.transform, false);
             rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
             rt.offsetMin = rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
             var tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.text = text; tmp.fontSize = size; tmp.color = color;
             tmp.enableWordWrapping = true;
@@ -469,11 +472,13 @@ namespace ARcadeRush.Minigames.SceneDirector
             Vector2 anchorMin, Vector2 anchorMax, Color bgColor)
         {
             var go = new GameObject(name);
-            go.transform.SetParent(parent.transform, false);
             go.layer = 5;
+            // RectTransform BEFORE SetParent (same fix as BuildPanel)
             var rt = go.AddComponent<RectTransform>();
+            go.transform.SetParent(parent.transform, false);
             rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
             rt.offsetMin = rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
             var img = go.AddComponent<Image>();
             img.color = bgColor;
             go.AddComponent<Button>();
