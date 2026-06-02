@@ -527,15 +527,19 @@ namespace ARcadeRush.Minigames.SceneDirector
         };
 
 #if UNITY_EDITOR
+        // Latch: press once to set emotion, stays until another key or N for Neutral.
+        private EmotionLabel _latchedEmotion = EmotionLabel.Neutral;
+
         private EmotionLabel SimulateKeyboard()
         {
-            if (Input.GetKey(KeyCode.H)) { if (Input.GetKeyDown(KeyCode.H)) Debug.Log("[DirectorGame] Tecla: H → Happy");      return EmotionLabel.Happy;    }
-            if (Input.GetKey(KeyCode.S)) { if (Input.GetKeyDown(KeyCode.S)) Debug.Log("[DirectorGame] Tecla: S → Surprised");  return EmotionLabel.Surprised; }
-            if (Input.GetKey(KeyCode.A)) { if (Input.GetKeyDown(KeyCode.A)) Debug.Log("[DirectorGame] Tecla: A → Angry");      return EmotionLabel.Angry;    }
-            if (Input.GetKey(KeyCode.F)) { if (Input.GetKeyDown(KeyCode.F)) Debug.Log("[DirectorGame] Tecla: F → Fear");       return EmotionLabel.Fear;     }
-            if (Input.GetKey(KeyCode.D)) { if (Input.GetKeyDown(KeyCode.D)) Debug.Log("[DirectorGame] Tecla: D → Disgust");    return EmotionLabel.Disgust;  }
-            if (Input.GetKey(KeyCode.Z)) { if (Input.GetKeyDown(KeyCode.Z)) Debug.Log("[DirectorGame] Tecla: Z → Sad");        return EmotionLabel.Sad;      }
-            return EmotionLabel.Neutral;
+            if (Input.GetKeyDown(KeyCode.H)) { _latchedEmotion = EmotionLabel.Happy;     Debug.Log("[DirectorGame] Tecla: H → Happy (latch)");     }
+            if (Input.GetKeyDown(KeyCode.S)) { _latchedEmotion = EmotionLabel.Surprised; Debug.Log("[DirectorGame] Tecla: S → Surprised (latch)"); }
+            if (Input.GetKeyDown(KeyCode.A)) { _latchedEmotion = EmotionLabel.Angry;     Debug.Log("[DirectorGame] Tecla: A → Angry (latch)");     }
+            if (Input.GetKeyDown(KeyCode.F)) { _latchedEmotion = EmotionLabel.Fear;      Debug.Log("[DirectorGame] Tecla: F → Fear (latch)");      }
+            if (Input.GetKeyDown(KeyCode.D)) { _latchedEmotion = EmotionLabel.Disgust;   Debug.Log("[DirectorGame] Tecla: D → Disgust (latch)");   }
+            if (Input.GetKeyDown(KeyCode.Z)) { _latchedEmotion = EmotionLabel.Sad;       Debug.Log("[DirectorGame] Tecla: Z → Sad (latch)");       }
+            if (Input.GetKeyDown(KeyCode.N)) { _latchedEmotion = EmotionLabel.Neutral;   Debug.Log("[DirectorGame] Tecla: N → Neutral (latch)");   }
+            return _latchedEmotion;
         }
 #endif
     }
