@@ -165,16 +165,20 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (_state != State.Playing) return;
 
-            EmotionLabel active;
+            EmotionLabel active = EmotionLabel.Neutral;
 
 #if UNITY_EDITOR
-            active = SimulateKeyboard();
+            // In Editor: keyboard takes priority. Bridge is fallback when no key pressed.
+            var fromKey = SimulateKeyboard();
+            if (fromKey != EmotionLabel.Neutral)
+                active = fromKey;
+            else if (_deps?.EmotionBridge != null && _deps.EmotionBridge.IsConnected)
+                active = ToEmotionLabel(_deps.EmotionBridge.CurrentEmotion);
 #else
-            active = EmotionLabel.Neutral;
-#endif
-            // Live emotion from DeepFace
+            // In build: always use DeepFace bridge
             if (_deps?.EmotionBridge != null && _deps.EmotionBridge.IsConnected)
                 active = ToEmotionLabel(_deps.EmotionBridge.CurrentEmotion);
+#endif
 
             Bar?.SetDetectedEmotion(active);
         }
