@@ -200,8 +200,12 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private void OnPlayClicked()
         {
-            Debug.Log($"[DirectorGame] OnPlayClicked — panel null={_startMenuPanel == null}");
-            _startMenuPanel?.SetActive(false);
+            // Destroy ALL StartMenuPanel instances — covers the case where
+            // BuildMenuPanels() ran twice and created two panels.
+            foreach (var go in GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+                if (go.name == "StartMenuPanel") Object.Destroy(go);
+            _startMenuPanel = null;
+
             _gamePanel?.SetActive(true);
             _state = State.Playing;
 
