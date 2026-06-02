@@ -191,6 +191,98 @@ namespace ARcadeRush.EmotionDetection
             return GetScore(emotion) >= threshold;
         }
 
+        // ── Phase 3: Emotion Matching & Query API ────────────────────────────
+
+        /// <summary>
+        /// Emotions verified as consistently detectable with DeepFace.
+        /// Disgust and Fear are excluded due to low accuracy (~30-55%).
+        /// </summary>
+        public static readonly EmotionType[] VerifiedEmotions =
+        {
+            EmotionType.Happy,
+            EmotionType.Angry,
+            EmotionType.Sad,
+            EmotionType.Neutral,
+            EmotionType.Surprise
+        };
+
+        /// <summary>Returns true if the emotion is in the verified whitelist.</summary>
+        public static bool IsVerified(EmotionType emotion)
+        {
+            for (int i = 0; i < VerifiedEmotions.Length; i++)
+                if (VerifiedEmotions[i] == emotion) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if the currently detected emotion matches the target.
+        /// Returns false (no throw) if server unavailable or face not detected.
+        /// </summary>
+        /// <param name="targetEmotion">Expected emotion (case-insensitive name match).</param>
+        /// <param name="minConfidence">Minimum confidence threshold (0-1). Default 0.40.</param>
+        public bool IsMatchingEmotion(string targetEmotion, float minConfidence = 0.40f)
+        {
+            if (!IsConnected || !FaceDetected) return false;
+
+            if (!_map.TryGetValue(targetEmotion.ToLowerInvariant(), out var targetType))
+                return false;
+
+            return IsMatchingEmotion(targetType, minConfidence);
+        }
+
+        /// <summary>
+        /// Checks if the currently detected emotion matches the target EmotionType.
+        /// Returns false (no throw) if server unavailable or face not detected.
+        /// </summary>
+        public bool IsMatchingEmotion(EmotionType target, float minConfidence = 0.40f)
+        {
+            if (!IsConnected || !FaceDetected) return false;
+            if (target == EmotionType.Unknown) return false;
+
+            return CurrentEmotion == target && Confidence >= minConfidence;
+        }
+
+        /// <summary>Returns the emotion type with the highest confidence score from the latest data.</summary>
+        public string GetCurrentDominantEmotion()
+        {
+            return _latestData.dominant_emotion ?? "neutral";
+        }
+
+        /// <summary>Returns the confidence (0-1) for a specific emotion name (lowercase).</summary>
+        public float GetEmotionConfidence(string emotionName)
+        {
+            if (string.IsNullOrEmpty(emotionName)) return 0f;
+            return GetScore(emotionName);
+        }
+
+        /// <summary>Returns the confidence (0-1) for a specific EmotionType.</summary>
+        public float GetEmotionConfidence(EmotionType emotion)
+        {
+            return GetScore(emotion);
+        }
+
+        /// <summary>Returns the list of emotion names the server supports (all 7 raw emotions).</summary>
+        public string[] GetAvailableEmotions()
+        {
+            return new string[] { "angry", "disgust", "fear", "happy", "sad", "surprise", "neutral" };
+        }
+
+        /// <summary>Overload: GetScore by string name (lowercase).</summary>
+        public float GetScore(string emotionName)
+        {
+            return emotionName.ToLowerInvariant() switch
+            {
+                "angry"    => _latestData.scores.angry,
+                "disgust"  => _latestData.scores.disgust,
+                "fear"     => _latestData.scores.fear,
+                "happy"    => _latestData.scores.happy,
+                "sad"      => _latestData.scores.sad,
+                "surprise" => _latestData.scores.surprise,
+                "neutral"  => _latestData.scores.neutral,
+                _          => 0f
+            };
+        }
+
         /// <summary>Resets all state to initial values.</summary>
         public void ResetState()
         {

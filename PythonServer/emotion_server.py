@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 import threading
 import time
@@ -35,8 +36,39 @@ PORT              = args.port
 PARENT_PID        = args.parent_pid
 MIN_FACE_WIDTH    = 50     # pixels — used in strict mode
 MIN_CONFIDENCE    = 0.30   # 0-1   — used in strict mode
-HISTORY_SIZE      = 4      # rolling average window
+HISTORY_SIZE      = 4      # rolling average window (overridable by whitelist config)
 ANALYZE_INTERVAL  = 0.10   # seconds between DeepFace calls
+
+# ── Load emotion whitelist config ──────────────────────────────────────────
+EMOTION_WHITELIST_PATH = os.path.join(os.path.dirname(__file__), "emotion_whitelist.json")
+_enabled_emotions = None
+_disabled_emotions = None
+_per_emotion_thresholds = {}
+_default_threshold = 0.40
+
+try:
+    with open(EMOTION_WHITELIST_PATH, 'r') as f:
+        whitelist_config = json.load(f)
+    _enabled_emotions = whitelist_config.get("enabled_emotions", None)
+    _disabled_emotions = whitelist_config.get("disabled_emotions", [])
+    _per_emotion_thresholds = whitelist_config.get("per_emotion_confidence_thresholds", {})
+    _default_threshold = whitelist_config.get("default_threshold", 0.40)
+    config_window = whitelist_config.get("rolling_window_size", None)
+    if config_window is not None:
+        HISTORY_SIZE = int(config_window)
+    print(f"[EmotionServer] Loaded whitelist config from emotion_whitelist.json")
+    if _enabled_emotions:
+        print(f"[EmotionServer]   ACTIVE emotions:   {_enabled_emotions}")
+    if _disabled_emotions:
+        print(f"[EmotionServer]   DISABLED emotions:  {_disabled_emotions}")
+    print(f"[EmotionServer]   Thresholds:         {_per_emotion_thresholds}")
+    print(f"[EmotionServer]   Default threshold:  {_default_threshold}")
+    print(f"[EmotionServer]   Rolling window:     {HISTORY_SIZE}")
+except FileNotFoundError:
+    print("[EmotionServer] No emotion_whitelist.json found — using all 7 emotions with default threshold 0.40.")
+except Exception as e:
+    print(f"[EmotionServer] Error loading whitelist: {e} — using all 7 emotions.")
+
 
 
 def _start_parent_watchdog(pid: int):
@@ -46,7 +78,7 @@ def _start_parent_watchdog(pid: int):
             time.sleep(2)
             try:
                 os.kill(pid, 0)  # signal 0 = existence check only
-            except (ProcessLookupError, PermissionError):
+            except OSError:
                 print(f"[EmotionServer] Unity process {pid} ended — shutting down.")
                 os._exit(0)
     threading.Thread(target=_watch, daemon=True).start()
@@ -130,6 +162,12 @@ def _analyze_loop():
                 avg_scores[emotion_name] = sum(
                     h.get(emotion_name, 0.0) for h in _emotion_history
                 ) / len(_emotion_history)
+
+            # ── Whitelist filter: zero out disabled emotions so they never become dominant ──
+            if _enabled_emotions is not None:
+                for emotion_name in list(avg_scores.keys()):
+                    if emotion_name not in _enabled_emotions:
+                        avg_scores[emotion_name] = 0.0
 
             dominant = max(avg_scores, key=avg_scores.get)
             confidence = avg_scores[dominant]

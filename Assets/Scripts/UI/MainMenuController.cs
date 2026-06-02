@@ -64,7 +64,7 @@ namespace ARcadeRush.UI
             {
                 // Load the specialized NinjaFruit menu scene
                 _startFruitNinjaBtn.onClick.AddListener(() =>
-                    LoadSceneByName("MainMenuNinjaFruit"));
+                    LoadScene(2));
             }
 
             if (_startDirectorBtn != null)

@@ -1,0 +1,38 @@
+{
+    "asset": "38572c8ce690b7f4f8ab69cf6857dc65",
+    "fileName": "019e813f-d8bf-78d1-80c3-a4c7e8ab9207.png",
+    "prompt": "A stylized, glossy gold 'center target' or 'reticle' icon. Circular shape, matching the glassy golden-bordered emoticon style of the reference image. Clean 2D vector look, centered on a solid white background.",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "18db6a6b27f92c748ac6ef4d15dd1c24",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

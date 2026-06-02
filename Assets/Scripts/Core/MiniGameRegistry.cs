@@ -51,7 +51,7 @@ namespace CubiWare.Core
 
             // Register known minigames — wrapped in try-catch for assembly load safety
             TryRegister("Shooter", "ARcadeRush.Minigames.Shooter.ShooterGame");
-            TryRegister("FruitNinja", null);        // Placeholder — no implementation yet
+            TryRegister("FruitNinja", "GameManagerFruit");
             TryRegister("EmotionTest", null);        // Placeholder — no implementation yet
             TryRegister("Simon", "ARcadeRush.Minigames.Simon.SimonGame");
             TryRegister("Director", "ARcadeRush.Minigames.SceneDirector.SceneDirectorGame");

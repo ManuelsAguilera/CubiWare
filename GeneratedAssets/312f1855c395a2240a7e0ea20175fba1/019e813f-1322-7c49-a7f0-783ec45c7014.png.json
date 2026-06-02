@@ -1,0 +1,38 @@
+{
+    "asset": "312f1855c395a2240a7e0ea20175fba1",
+    "fileName": "019e813f-1322-7c49-a7f0-783ec45c7014.png",
+    "prompt": "A single, stylized, high-quality UI arrow icon pointing upwards. The style should be glossy and glassy with a gold/yellow color palette and a subtle glow, matching the golden-bordered emoticon style of the reference image. Dark thin outline, clean 2D vector look, centered on a solid white background (to be removed later).",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "18db6a6b27f92c748ac6ef4d15dd1c24",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

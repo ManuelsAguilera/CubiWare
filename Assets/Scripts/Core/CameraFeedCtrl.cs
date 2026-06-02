@@ -223,8 +223,14 @@ namespace ARcadeRush.Core
             Debug.Log($"[CamFeed] SetOutputImage called. New output: {newOutput?.name ?? "null"}");
             _outputImage = newOutput;
             if (_outputImage != null && _webCamTexture != null)
+            {
                 _outputImage.texture = _webCamTexture;
-                _outputImage.uvRect = new Rect(1, 0, -1, 1);
+                // Respect global mirror setting from CameraConfigUI
+                bool isMirrored = PlayerPrefs.GetInt("IsMirrored", 0) == 1;
+                _outputImage.uvRect = isMirrored
+                    ? new Rect(1, 0, -1, 1)   // mirrored: flip horizontally
+                    : new Rect(0, 0, 1, 1);   // not mirrored: normal
+            }
         }
 
         private void Update()

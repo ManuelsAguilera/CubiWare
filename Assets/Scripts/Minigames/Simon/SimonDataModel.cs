@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using ARcadeRush.Hand;
 
 namespace ARcadeRush.Minigames.Simon
 {
@@ -11,24 +12,24 @@ namespace ARcadeRush.Minigames.Simon
     public enum SimonActionType
     {
         Gesture,  // Player must perform a hand gesture
-        Emotion   // Player must show a facial emotion (Phase 2)
+        Emotion   // Player must show a facial emotion (Phase 3)
     }
 
     public enum SimonGestureTarget
     {
         OpenHand,
-        ClosedFist,
-        Point,
-        Pinch,
-        ThumbDown
+        ClosedFist
+        // REMOVED for Phase 1: Point, Pinch, ThumbDown
     }
 
     public enum SimonEmotionTarget
     {
         Happy,
-        Surprised,
-        Angry
-        // Neutral is implicitly the "don't do anything" state
+        Angry,
+        Sad,
+        Neutral,
+        Surprise
+        // Fear and Disgust excluded due to low DeepFace accuracy
     }
 
     public enum RoundResult
@@ -48,9 +49,17 @@ namespace ARcadeRush.Minigames.Simon
     public class SimonCommand
     {
         public bool SaysSimonDice;             // True = "Simón dice...", False = regular command
+        public bool ContainsSimonDice;         // True if the dialogue text contains "simon dice" (case-insensitive). Set by generator.
         public SimonActionType ActionType;     // Gesture or Emotion
         public SimonGestureTarget GestureTarget; // Only valid if ActionType == Gesture
         public SimonEmotionTarget EmotionTarget; // Only valid if ActionType == Emotion
+        public HandZone ExpectedZone;          // Phase 2: zone player must move hand to before gesture
         public string DialogueText;            // LLM-generated phrase
+
+        /// <summary>True if this command includes a position requirement (Phase 2).</summary>
+        public bool HasPositionTarget => ExpectedZone != HandZone.None;
+
+        /// <summary>True if this command includes an emotion requirement (Phase 3).</summary>
+        public bool HasEmotionTarget => ActionType == SimonActionType.Emotion;
     }
 }

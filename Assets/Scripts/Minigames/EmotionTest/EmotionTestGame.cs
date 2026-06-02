@@ -87,8 +87,9 @@ namespace ARcadeRush.Minigames.EmotionTest
             {
                 if (_deps.Camera.ActiveWebCamTexture != null)
                 {
-                    _cameraDisplay.texture = _deps.Camera.ActiveWebCamTexture;
-                    Debug.Log("[EmotionTestGame] Camera already active, texture reassigned.");
+                    // Re-wire via SetOutputImage so it respects global mirror setting
+                    _deps.Camera.SetOutputImage(_cameraDisplay);
+                    Debug.Log("[EmotionTestGame] Camera already active, SetOutputImage reassigned.");
                 }
                 else
                 {

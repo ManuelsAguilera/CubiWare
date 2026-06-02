@@ -320,7 +320,7 @@ namespace ARcadeRush.UI
             tmp.text      = text;
             tmp.fontSize  = size;
             tmp.color     = color;
-            tmp.enableWordWrapping = true;
+            tmp.textWrappingMode = TextWrappingModes.Normal;
             tmp.richText  = true;
             return tmp;
         }

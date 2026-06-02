@@ -4,15 +4,24 @@ Python server que recibe frames JPEG desde Unity vía WebSocket y clasifica emoc
 
 ## Requisitos
 
-- Python 3.10 o superior
+- Python 3.10 a 3.12 (Recomendado: **Python 3.12**).
 - pip
+
+> [!WARNING]
+> Versiones más recientes como **Python 3.14** no están soportadas actualmente debido a la falta de compatibilidad de TensorFlow en Windows.
 
 ## Setup
 
-```bash
-cd PythonServer
-pip install -r requirements.txt
-```
+1. **Crear el entorno virtual (Windows):**
+   ```bash
+   cd PythonServer
+   py -3.12 -m venv venv
+   ```
+
+2. **Instalar dependencias:**
+   ```bash
+   venv\Scripts\pip.exe install -r requirements.txt
+   ```
 
 > **Primera ejecución:** DeepFace descarga los modelos automáticamente (~500 MB). Asegúrate de tener conexión a internet.
 
@@ -69,5 +78,35 @@ Con la flag `--strict-detection`, se requiere que el rostro detectado tenga:
 - Confianza > 30% en la emoción dominante
 
 ```bash
-python emotion_server.py --strict-detection
+venv\Scripts\python.exe emotion_server.py --strict-detection
 ```
+
+## Solución de Problemas (Troubleshooting)
+
+### 1. El término 'venv/bin/python' no se reconoce
+En Windows, las rutas del entorno virtual usan barras invertidas (`\`) y el directorio `Scripts` en lugar de `bin`:
+* **Comando correcto en Windows:**
+  ```powershell
+  venv\Scripts\python.exe emotion_server.py
+  ```
+
+### 2. Error `ModuleNotFoundError: No module named 'cv2'`
+Esto ocurre cuando las dependencias no están instaladas en el entorno virtual activo.
+* **Solución:** Ejecuta la instalación usando la ruta absoluta al pip del entorno virtual:
+  ```powershell
+  venv\Scripts\pip.exe install -r requirements.txt
+  ```
+
+### 3. Error al compilar `numpy` (`metadata-generation-failed` / `Unknown compiler`)
+Este error ocurre al usar una versión de Python demasiado nueva (como **Python 3.14+**). Debido a que TensorFlow carece de paquetes pre-compilados (wheels) para estas versiones en Windows, `pip` intenta compilar dependencias desde el código fuente (.tar.gz), lo cual falla si no tienes herramientas de compilación C++ instaladas.
+* **Solución:**
+  1. Instala **Python 3.12** utilizando Winget:
+     ```powershell
+     winget install Python.Python.3.12
+     ```
+  2. Elimina el entorno virtual actual y créalo de nuevo forzando el uso de Python 3.12:
+     ```powershell
+     Remove-Item -Recurse -Force venv
+     py -3.12 -m venv venv
+     venv\Scripts\pip.exe install -r requirements.txt
+     ```

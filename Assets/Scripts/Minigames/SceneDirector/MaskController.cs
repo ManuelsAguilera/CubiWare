@@ -26,8 +26,10 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private Transform _maskRoot;
         [Tooltip("The camera that renders the Director 3D stage.")]
         [SerializeField] private Camera    _stageCamera;
+#pragma warning disable CS0414
         [SerializeField] private float     _maskDepth = 1.5f;
         [SerializeField] private float     _scaleMultiplier = 3.5f;
+#pragma warning restore CS0414
 
         // TODO: Replace with face position data from DeepFace region or a lightweight
         // face detector. Previously sourced from FaceLandmarkReader.FaceCenterNormalized
