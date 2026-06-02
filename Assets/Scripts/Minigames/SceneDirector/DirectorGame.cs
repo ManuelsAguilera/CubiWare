@@ -357,17 +357,19 @@ namespace ARcadeRush.Minigames.SceneDirector
             bool showPlay, out TextMeshProUGUI titleTmp)
         {
             var panel = new GameObject(panelName);
-            panel.transform.SetParent(canvas.transform, false);
             panel.layer = 5;
-
+            // Add RectTransform BEFORE parenting — Unity requires this order for proper stretch
             var rt = panel.AddComponent<RectTransform>();
+            panel.transform.SetParent(canvas.transform, false);
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
 
-            // Background
+            // Background — solid dark fill
             var bg = panel.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0.031f, 0.95f);
+            bg.raycastTarget = true;
 
             // Title
             titleTmp = MakeTMP(panel, "PanelTitle", title, 52, Color.white,
