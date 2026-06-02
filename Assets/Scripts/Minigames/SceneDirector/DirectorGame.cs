@@ -68,10 +68,7 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         // ── Unity lifecycle ───────────────────────────────────────────────────
 
-        private void Awake()
-        {
-            BuildMenuPanels();
-        }
+        private void Awake() { /* panels built in OnStart after scene is fully loaded */ }
 
         private void Start()
         {
@@ -108,6 +105,10 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             // Bind webcam
             deps.Camera?.SetOutputImage(_cameraDisplay);
+
+            // Build menu panels NOW (not in Awake) so FindCanvasInScene finds
+            // the Director's Canvas, not LoadingScreenManager's DontDestroyOnLoad canvas.
+            BuildMenuPanels();
 
             // Hide game UI until Play is clicked
             _gamePanel?.SetActive(false);
@@ -419,8 +420,19 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private static GameObject FindCanvasInScene()
         {
-            var c = FindFirstObjectByType<Canvas>();
-            return c != null ? c.gameObject : null;
+            // Search by name to find the Director scene's Canvas,
+            // NOT LoadingScreenManager's "LoadingCanvas" (DontDestroyOnLoad).
+            var go = GameObject.Find("Canvas");
+            if (go != null && go.GetComponent<Canvas>() != null) return go;
+
+            // Fallback: search only in the active scene
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var c = root.GetComponentInChildren<Canvas>(true);
+                if (c != null) return c.gameObject;
+            }
+            return null;
         }
 
         private static T FindUI<T>(string goName) where T : Component
