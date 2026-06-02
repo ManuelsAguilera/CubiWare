@@ -161,6 +161,8 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         // ── Update — emotion polling ──────────────────────────────────────────
 
+        private EmotionLabel _lastLoggedEmotion = EmotionLabel.Neutral;
+
         private void Update()
         {
             if (_state != State.Playing) return;
@@ -179,6 +181,13 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (_deps?.EmotionBridge != null && _deps.EmotionBridge.IsConnected)
                 active = ToEmotionLabel(_deps.EmotionBridge.CurrentEmotion);
 #endif
+
+            // Log when emotion changes (not every frame to avoid spam)
+            if (active != _lastLoggedEmotion)
+            {
+                _lastLoggedEmotion = active;
+                Debug.Log($"[DirectorGame] Emoción activa: {active}");
+            }
 
             Bar?.SetDetectedEmotion(active);
         }
@@ -520,12 +529,12 @@ namespace ARcadeRush.Minigames.SceneDirector
 #if UNITY_EDITOR
         private EmotionLabel SimulateKeyboard()
         {
-            if (Input.GetKey(KeyCode.H)) return EmotionLabel.Happy;
-            if (Input.GetKey(KeyCode.S)) return EmotionLabel.Surprised;
-            if (Input.GetKey(KeyCode.A)) return EmotionLabel.Angry;
-            if (Input.GetKey(KeyCode.F)) return EmotionLabel.Fear;
-            if (Input.GetKey(KeyCode.D)) return EmotionLabel.Disgust;
-            if (Input.GetKey(KeyCode.Z)) return EmotionLabel.Sad;
+            if (Input.GetKey(KeyCode.H)) { if (Input.GetKeyDown(KeyCode.H)) Debug.Log("[DirectorGame] Tecla: H → Happy");      return EmotionLabel.Happy;    }
+            if (Input.GetKey(KeyCode.S)) { if (Input.GetKeyDown(KeyCode.S)) Debug.Log("[DirectorGame] Tecla: S → Surprised");  return EmotionLabel.Surprised; }
+            if (Input.GetKey(KeyCode.A)) { if (Input.GetKeyDown(KeyCode.A)) Debug.Log("[DirectorGame] Tecla: A → Angry");      return EmotionLabel.Angry;    }
+            if (Input.GetKey(KeyCode.F)) { if (Input.GetKeyDown(KeyCode.F)) Debug.Log("[DirectorGame] Tecla: F → Fear");       return EmotionLabel.Fear;     }
+            if (Input.GetKey(KeyCode.D)) { if (Input.GetKeyDown(KeyCode.D)) Debug.Log("[DirectorGame] Tecla: D → Disgust");    return EmotionLabel.Disgust;  }
+            if (Input.GetKey(KeyCode.Z)) { if (Input.GetKeyDown(KeyCode.Z)) Debug.Log("[DirectorGame] Tecla: Z → Sad");        return EmotionLabel.Sad;      }
             return EmotionLabel.Neutral;
         }
 #endif
