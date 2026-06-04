@@ -70,9 +70,10 @@ namespace ARcadeRush.Minigames.SceneDirector
         private float        _fillAmount = 0f;
         private bool         _active     = false;
 
-        public float FillAmount  => _fillAmount;
-        public bool  IsActive    => _active;
-        public bool  IsCorrect   => _active && _detected == _required && _required != EmotionLabel.Neutral;
+        public float        FillAmount       => _fillAmount;
+        public bool         IsActive         => _active;
+        public bool         IsCorrect        => _active && _detected == _required && _required != EmotionLabel.Neutral;
+        public EmotionLabel RequiredEmotion  => _required;
 
         private const string LogServiceName = "ApprovalBarController";
 
@@ -80,6 +81,10 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            // Code-based discovery if Inspector wiring is missing
+            if (_fillBar == null)      _fillBar      = GameObject.Find("ApprovalBarFill")?.GetComponent<Image>();
+            if (_feedbackText == null) _feedbackText = GameObject.Find("FeedbackText")?.GetComponent<TextMeshProUGUI>();
         }
 
         private void OnDestroy()

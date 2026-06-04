@@ -55,6 +55,9 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            // Code-based discovery if Inspector wiring is missing
+            if (_timeText == null) _timeText = GameObject.Find("TimerText")?.GetComponent<TextMeshProUGUI>();
         }
 
         private void OnDestroy()
