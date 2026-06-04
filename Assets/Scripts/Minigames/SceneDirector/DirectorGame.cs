@@ -245,10 +245,15 @@ namespace ARcadeRush.Minigames.SceneDirector
                 if (go.name == "StartMenuPanel") Object.Destroy(go);
             _startMenuPanel = null;
 
-            Debug.Log($"[DirectorGame] OnPlayClicked — gamePanel null={_gamePanel == null}, activeSelf before={_gamePanel?.activeSelf}");
             _gamePanel?.SetActive(true);
-            Debug.Log($"[DirectorGame] OnPlayClicked — activeSelf after={_gamePanel?.activeSelf}");
             _state = State.Playing;
+
+            // Clear default "New Text" from TMP elements before ScriptController sets them
+            if (_emotionText  != null) _emotionText.text  = "";
+            if (_timerText    != null) _timerText.text    = "";
+            if (_progressText != null) _progressText.text = "";
+            var nextTmp = GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>();
+            if (nextTmp != null) nextTmp.text = "";
 
             // Wire Scenario events here (not in OnStart) to prevent the Animator
             // from auto-firing OnOpenComplete before the user clicks Play.
