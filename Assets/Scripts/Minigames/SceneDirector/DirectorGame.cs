@@ -223,7 +223,9 @@ namespace ARcadeRush.Minigames.SceneDirector
                 if (go.name == "StartMenuPanel") Object.Destroy(go);
             _startMenuPanel = null;
 
+            Debug.Log($"[DirectorGame] OnPlayClicked — gamePanel null={_gamePanel == null}, activeSelf before={_gamePanel?.activeSelf}");
             _gamePanel?.SetActive(true);
+            Debug.Log($"[DirectorGame] OnPlayClicked — activeSelf after={_gamePanel?.activeSelf}");
             _state = State.Playing;
 
             // Wire Scenario events here (not in OnStart) to prevent the Animator
@@ -362,6 +364,8 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private void SetupGameUIStyles()
         {
+            Debug.Log($"[DirectorGame] SetupGameUIStyles — barFill={_barFill != null}, emotionText={_emotionText != null}, timerText={_timerText != null}, gamePanel={_gamePanel != null}");
+
             // --- Approval bar ---
             if (_barFill != null)
             {
