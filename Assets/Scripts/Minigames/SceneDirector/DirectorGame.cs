@@ -393,14 +393,12 @@ namespace ARcadeRush.Minigames.SceneDirector
             }
 
             // --- Texts: make sure they're visible ---
-            StyleText(_emotionText,   64, Color.white,                  anchor: new Vector2(0.5f, 0.55f), size: new Vector2(700, 90));
-            StyleText(_timerText,     48, new Color(1f, 0.8f, 0f, 1f),  anchor: new Vector2(0.5f, 0.78f), size: new Vector2(200, 70));
-            StyleText(_progressText,  28, new Color(0.7f, 0.7f, 0.7f),  anchor: new Vector2(0.5f, 0.88f), size: new Vector2(200, 45));
+            StyleText(_emotionText,  64, Color.white,                 new Vector2(0.5f, 0.55f), new Vector2(700, 90));
+            StyleText(_timerText,    48, new Color(1f, 0.8f, 0f, 1f), new Vector2(0.5f, 0.78f), new Vector2(200, 70));
+            StyleText(_progressText, 28, new Color(0.7f, 0.7f, 0.7f), new Vector2(0.5f, 0.88f), new Vector2(200, 45));
 
-            var nextLabel = _timerText != null
-                ? GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>()
-                : null;
-            StyleText(nextLabel, 26, new Color(0.6f, 0.8f, 1f, 1f), anchor: new Vector2(0.5f, 0.44f), size: new Vector2(500, 40));
+            var nextLabel = GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>();
+            StyleText(nextLabel, 26, new Color(0.6f, 0.8f, 1f, 1f), new Vector2(0.5f, 0.44f), new Vector2(500, 40));
         }
 
         private static void StyleText(TextMeshProUGUI tmp, float size, Color color,
