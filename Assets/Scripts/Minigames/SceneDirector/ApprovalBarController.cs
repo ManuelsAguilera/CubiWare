@@ -70,9 +70,10 @@ namespace ARcadeRush.Minigames.SceneDirector
         private float        _fillAmount = 0f;
         private bool         _active     = false;
 
-        public float FillAmount  => _fillAmount;
-        public bool  IsActive    => _active;
-        public bool  IsCorrect   => _active && _detected == _required && _required != EmotionLabel.Neutral;
+        public float        FillAmount       => _fillAmount;
+        public bool         IsActive         => _active;
+        public bool         IsCorrect        => _active && _detected == _required && _required != EmotionLabel.Neutral;
+        public EmotionLabel RequiredEmotion  => _required;
 
         private const string LogServiceName = "ApprovalBarController";
 

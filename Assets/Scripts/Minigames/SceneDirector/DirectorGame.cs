@@ -166,6 +166,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         // ── Update — emotion polling ──────────────────────────────────────────
 
         private EmotionLabel _lastLoggedEmotion = EmotionLabel.Neutral;
+        private float        _diagTimer          = 0f;
 
         private void Update()
         {
@@ -194,6 +195,23 @@ namespace ARcadeRush.Minigames.SceneDirector
             }
 
             Bar?.SetDetectedEmotion(active);
+
+            // Periodic diagnostic log every 3s (remove after debugging)
+            _diagTimer += Time.deltaTime;
+            if (_diagTimer >= 3f)
+            {
+                _diagTimer = 0f;
+                var bridge = _deps?.EmotionBridge;
+                Debug.Log(
+                    $"[Director DIAG] " +
+                    $"Bridge={bridge?.IsConnected} | " +
+                    $"Cara={bridge?.FaceDetected} | " +
+                    $"DeepFace={bridge?.CurrentEmotion} conf={bridge?.Confidence:F2} | " +
+                    $"Activa={active} | " +
+                    $"Barra={Bar?.RequiredEmotion} | " +
+                    $"IsCorrect={Bar?.IsCorrect} | " +
+                    $"Fill={Bar?.FillAmount:F2}");
+            }
 
             // Timer color: yellow → red when < 35% remaining
             if (_timerText != null && Countdown != null)

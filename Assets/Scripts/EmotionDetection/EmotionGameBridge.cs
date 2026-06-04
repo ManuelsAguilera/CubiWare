@@ -219,6 +219,8 @@ namespace ARcadeRush.EmotionDetection
             if (!_map.TryGetValue(data.dominant_emotion, out var incoming))
                 incoming = EmotionType.Unknown;
 
+            Debug.Log($"[Bridge] dominant={data.dominant_emotion} conf={data.confidence:F2} face={data.face_detected} → {incoming}");
+
             if (DetectionMode == EmotionDetectionMode.AutoInterval)
             {
                 if (incoming != CurrentEmotion)
