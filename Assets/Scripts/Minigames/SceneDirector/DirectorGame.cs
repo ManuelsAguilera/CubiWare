@@ -194,6 +194,10 @@ namespace ARcadeRush.Minigames.SceneDirector
             }
 
             Bar?.SetDetectedEmotion(active);
+
+            // Timer color: yellow → red when < 35% remaining
+            if (_timerText != null && Countdown != null)
+                _timerText.color = Countdown.NormalizedTime < 0.35f ? _timerUrgent : _timerNormal;
         }
 
         // ── Menu panels (built in code, no YAML) ─────────────────────────────
@@ -362,47 +366,61 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         // ── Game UI visual setup ──────────────────────────────────────────────
 
+        // Timer colors — yellow → red as time runs out
+        private static readonly Color _timerNormal  = new Color(1f, 0.8f, 0f, 1f);   // #FFCC00
+        private static readonly Color _timerUrgent  = new Color(1f, 0.27f, 0.27f, 1f); // #FF4444
+
         private void SetupGameUIStyles()
         {
-            Debug.Log($"[DirectorGame] SetupGameUIStyles — barFill={_barFill != null}, emotionText={_emotionText != null}, timerText={_timerText != null}, gamePanel={_gamePanel != null}");
-
-            // --- Approval bar ---
+            // ── Approval bar ──────────────────────────────────────────────────
             if (_barFill != null)
             {
-                _barFill.type        = Image.Type.Filled;
-                _barFill.fillMethod  = Image.FillMethod.Horizontal;
-                _barFill.fillOrigin  = (int)Image.OriginHorizontal.Left;
-                _barFill.color       = new Color(0f, 1f, 0.2f, 1f); // bright green
+                _barFill.type       = Image.Type.Filled;
+                _barFill.fillMethod = Image.FillMethod.Horizontal;
+                _barFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+                _barFill.color      = new Color(0f, 1f, 0.27f, 1f); // #00FF44
 
-                // Give the bar a proper size if it's tiny
+                // Wide strip at the bottom (5%–95% horizontally, 5%–13% vertically)
                 var rt = _barFill.rectTransform;
-                if (rt.sizeDelta.x < 200f)
-                {
-                    rt.anchorMin = new Vector2(0.1f, 0.08f);
-                    rt.anchorMax = new Vector2(0.9f, 0.14f);
-                    rt.offsetMin = rt.offsetMax = Vector2.zero;
-                }
+                rt.anchorMin = new Vector2(0.05f, 0.05f);
+                rt.anchorMax = new Vector2(0.95f, 0.13f);
+                rt.offsetMin = rt.offsetMax = Vector2.zero;
 
-                // Add a dark background behind the bar
+                // Dark background behind the bar
                 var bgGO = new GameObject("ApprovalBarBG");
                 bgGO.layer = 5;
                 var bgRt = bgGO.AddComponent<RectTransform>();
                 bgGO.transform.SetParent(_barFill.transform.parent, false);
                 bgGO.transform.SetSiblingIndex(_barFill.transform.GetSiblingIndex());
-                bgRt.anchorMin = _barFill.rectTransform.anchorMin;
-                bgRt.anchorMax = _barFill.rectTransform.anchorMax;
+                bgRt.anchorMin = new Vector2(0.05f, 0.05f);
+                bgRt.anchorMax = new Vector2(0.95f, 0.13f);
                 bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
-                var bgImg = bgGO.AddComponent<Image>();
-                bgImg.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);
+                bgGO.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 1f);
             }
 
-            // --- Texts: make sure they're visible ---
-            StyleText(_emotionText,  64, Color.white,                 new Vector2(0.5f, 0.55f), new Vector2(700, 90));
-            StyleText(_timerText,    48, new Color(1f, 0.8f, 0f, 1f), new Vector2(0.5f, 0.78f), new Vector2(200, 70));
-            StyleText(_progressText, 28, new Color(0.7f, 0.7f, 0.7f), new Vector2(0.5f, 0.88f), new Vector2(200, 45));
+            // ── Emotion name — large, centered, upper zone ────────────────────
+            //   ★ FELIZ ★  at 80% vertical
+            StyleText(_emotionText, 68, Color.white,
+                new Vector2(0.5f, 0.80f), new Vector2(700, 95));
+            if (_emotionText != null) _emotionText.fontStyle = FontStyles.Bold;
 
-            var nextLabel = GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>();
-            StyleText(nextLabel, 26, new Color(0.6f, 0.8f, 1f, 1f), new Vector2(0.5f, 0.44f), new Vector2(500, 40));
+            // ── Next emotion — smaller, just below ────────────────────────────
+            //   "Siguiente: ENOJADO"  at 72% vertical
+            var nextLabel = _progressText != null
+                ? GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>()
+                : null;
+            StyleText(nextLabel, 28, new Color(0f, 0.706f, 1f, 1f),  // #00B4FF
+                new Vector2(0.5f, 0.72f), new Vector2(500, 50));
+
+            // ── Timer — right of bar, changes color near zero ─────────────────
+            StyleText(_timerText, 42, _timerNormal,
+                new Vector2(0.92f, 0.09f), new Vector2(110, 55));
+            if (_timerText != null) _timerText.alignment = TextAlignmentOptions.Right;
+
+            // ── Progress — left of bar ────────────────────────────────────────
+            StyleText(_progressText, 26, new Color(0.67f, 0.67f, 0.67f, 1f), // #AAAAAA
+                new Vector2(0.08f, 0.09f), new Vector2(110, 40));
+            if (_progressText != null) _progressText.alignment = TextAlignmentOptions.Left;
         }
 
         private static void StyleText(TextMeshProUGUI tmp, float size, Color color,
@@ -461,7 +479,7 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             // Background — solid dark fill
             var bg = panel.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0.031f, 0.95f);
+            bg.color = new Color(0f, 0f, 0.031f, 1f); // fully opaque
             bg.raycastTarget = true;
 
             // Title
