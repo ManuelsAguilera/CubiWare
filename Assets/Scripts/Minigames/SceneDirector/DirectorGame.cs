@@ -110,6 +110,10 @@ namespace ARcadeRush.Minigames.SceneDirector
             // the Director's Canvas, not LoadingScreenManager's DontDestroyOnLoad canvas.
             BuildMenuPanels();
 
+            // Configure visual styles (Image type, colors, font sizes)
+            // so elements are visible regardless of how the scene was built.
+            SetupGameUIStyles();
+
             // Hide game UI until Play is clicked
             _gamePanel?.SetActive(false);
             HideCanvasGroup(_countdownOverlay);
@@ -353,6 +357,67 @@ namespace ARcadeRush.Minigames.SceneDirector
         }
 
         // ── Programmatic UI construction ──────────────────────────────────────
+
+        // ── Game UI visual setup ──────────────────────────────────────────────
+
+        private void SetupGameUIStyles()
+        {
+            // --- Approval bar ---
+            if (_barFill != null)
+            {
+                _barFill.type        = Image.Type.Filled;
+                _barFill.fillMethod  = Image.FillMethod.Horizontal;
+                _barFill.fillOrigin  = (int)Image.OriginHorizontal.Left;
+                _barFill.color       = new Color(0f, 1f, 0.2f, 1f); // bright green
+
+                // Give the bar a proper size if it's tiny
+                var rt = _barFill.rectTransform;
+                if (rt.sizeDelta.x < 200f)
+                {
+                    rt.anchorMin = new Vector2(0.1f, 0.08f);
+                    rt.anchorMax = new Vector2(0.9f, 0.14f);
+                    rt.offsetMin = rt.offsetMax = Vector2.zero;
+                }
+
+                // Add a dark background behind the bar
+                var bgGO = new GameObject("ApprovalBarBG");
+                bgGO.layer = 5;
+                var bgRt = bgGO.AddComponent<RectTransform>();
+                bgGO.transform.SetParent(_barFill.transform.parent, false);
+                bgGO.transform.SetSiblingIndex(_barFill.transform.GetSiblingIndex());
+                bgRt.anchorMin = _barFill.rectTransform.anchorMin;
+                bgRt.anchorMax = _barFill.rectTransform.anchorMax;
+                bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
+                var bgImg = bgGO.AddComponent<Image>();
+                bgImg.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);
+            }
+
+            // --- Texts: make sure they're visible ---
+            StyleText(_emotionText,   64, Color.white,                  anchor: new Vector2(0.5f, 0.55f), size: new Vector2(700, 90));
+            StyleText(_timerText,     48, new Color(1f, 0.8f, 0f, 1f),  anchor: new Vector2(0.5f, 0.78f), size: new Vector2(200, 70));
+            StyleText(_progressText,  28, new Color(0.7f, 0.7f, 0.7f),  anchor: new Vector2(0.5f, 0.88f), size: new Vector2(200, 45));
+
+            var nextLabel = _timerText != null
+                ? GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>()
+                : null;
+            StyleText(nextLabel, 26, new Color(0.6f, 0.8f, 1f, 1f), anchor: new Vector2(0.5f, 0.44f), size: new Vector2(500, 40));
+        }
+
+        private static void StyleText(TextMeshProUGUI tmp, float size, Color color,
+            Vector2 anchor, Vector2 sizePixels)
+        {
+            if (tmp == null) return;
+            tmp.fontSize  = size;
+            tmp.color     = color;
+            tmp.alignment = TextAlignmentOptions.Center;
+
+            var rt = tmp.rectTransform;
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.sizeDelta  = sizePixels;
+            rt.anchoredPosition = Vector2.zero;
+        }
+
+        // ── Menu panels ───────────────────────────────────────────────────────
 
         private void BuildMenuPanels()
         {
