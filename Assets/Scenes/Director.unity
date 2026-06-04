@@ -409,10 +409,10 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 705616814}
-  - {fileID: 1057125635}
   - {fileID: 808409691}
   - {fileID: 1611706189}
   - {fileID: 818503560}
+  - {fileID: 1057125635}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1500,8 +1500,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fece0b56dae9802ceb4e1726d822bbf6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ARcadeRush.Minigames.SceneDirector.ApprovalBarController
-  _fillBar: {fileID: 0}
-  _feedbackText: {fileID: 0}
+  _fillBar: {fileID: 199175975}
+  _feedbackText: {fileID: 685370572}
   _fillRate: 0.35
   _drainRate: 0.2
   _initialFillAmount: 0.15
@@ -1689,12 +1689,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6593e8ab8c120a05996b982fa61fd885, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ARcadeRush.Minigames.SceneDirector.ScriptController
-  _currentEmotionText: {fileID: 0}
-  _nextEmotionText: {fileID: 0}
-  _progressText: {fileID: 0}
-  _emotionIcon: {fileID: 0}
+  _currentEmotionText: {fileID: 1257814872}
+  _nextEmotionText: {fileID: 686978861}
+  _progressText: {fileID: 1300089609}
+  _emotionIcon: {fileID: 162364880}
   _emotionSprites: []
-  _introText: {fileID: 0}
+  _introText: {fileID: 1935814980}
   _sequenceLength: 3
   _timeLimitStart: 6
   _timeLimitEnd: 3
