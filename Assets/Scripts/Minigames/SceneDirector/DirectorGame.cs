@@ -281,6 +281,17 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private IEnumerator StartWithCountdown()
         {
+            Debug.Log($"[Director] StartWithCountdown — overlay={_countdownOverlay != null}, text={_countdownOverlayText != null}");
+
+            // Style countdown text on first use
+            if (_countdownOverlayText != null)
+            {
+                _countdownOverlayText.fontSize  = 120;
+                _countdownOverlayText.color     = Color.white;
+                _countdownOverlayText.fontStyle = FontStyles.Bold;
+                _countdownOverlayText.alignment = TextAlignmentOptions.Center;
+            }
+
             // 3-2-1 overlay
             ShowCanvasGroup(_countdownOverlay);
             foreach (string n in new[] { "3", "2", "1", "¡ACCIÓN!" })
