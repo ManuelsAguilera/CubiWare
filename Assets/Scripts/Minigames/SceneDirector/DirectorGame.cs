@@ -72,11 +72,11 @@ namespace ARcadeRush.Minigames.SceneDirector
 
         private void Start()
         {
-            if (GameManager.Instance != null)
-            {
-                if (_deps != null) GameManager.Instance.RegisterGame(this);
-                else               GameManager.Instance.StartGame(this);
-            }
+            // SceneLoader always calls OnStart() — don't call StartGame() here,
+            // that would trigger a second OnStart() while GamePanel is already hidden,
+            // causing all FindUI calls to return null.
+            if (GameManager.Instance != null && _deps != null)
+                GameManager.Instance.RegisterGame(this);
         }
 
         // ── IMiniGame ─────────────────────────────────────────────────────────
