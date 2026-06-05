@@ -113,6 +113,9 @@ namespace ARcadeRush.Core
 
             _logger.LogInfo("SceneLoader", $"Scene '{sceneName}' loaded successfully.");
 
+            // Auto-start camera if the new scene has one and it isn't already running
+            CameraFeedCtrl.Instance?.StartCamera();
+
             // ── Init bridge fix: Find IMiniGame and call OnStart(deps) ──────
             var miniGame = FindFirstMiniGameInScene();
             if (miniGame != null)
