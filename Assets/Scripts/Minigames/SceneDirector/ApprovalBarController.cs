@@ -131,6 +131,7 @@ namespace ARcadeRush.Minigames.SceneDirector
             _fillAmount = 0.5f; // hardcoded — bypasses YAML-cached _initialFillAmount (was 0.15)
             _active     = true;
             RefreshUI();
+            Debug.Log($"[Bar] Activate → required={required}  fill={_fillAmount:F2}  effectiveDrain={Mathf.Min(_drainRate, 0.03f):F3}/s");
             ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}");
         }
 

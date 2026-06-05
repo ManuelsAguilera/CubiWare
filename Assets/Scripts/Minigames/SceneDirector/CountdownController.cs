@@ -44,6 +44,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         private float _remaining;
         private bool  _running;
         private bool  _paused;
+        private int   _lastLoggedSecond = -1;
 
         public float NormalizedTime    => _duration > 0f ? _remaining / _duration : 0f;
         public float RemainingSeconds  => _remaining;
@@ -82,6 +83,13 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             RefreshUI();
             OnTick?.Invoke(NormalizedTime);
+
+            int currentSecond = Mathf.CeilToInt(_remaining);
+            if (currentSecond != _lastLoggedSecond)
+            {
+                _lastLoggedSecond = currentSecond;
+                Debug.Log($"[Countdown] ⏱ {currentSecond}s restantes (duración={_duration:F0}s)");
+            }
         }
 
         // ── Public API ────────────────────────────────────────────────────────────
