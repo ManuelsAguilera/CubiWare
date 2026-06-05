@@ -612,8 +612,8 @@ namespace ARcadeRush.Minigames.Shooter
             _hudController?.HidePauseOverlay();
             _hudController?.SetHUDVisible(true);
 
-            // Start music now that the game is actually beginning
-            _audioController?.SetIntensity(1);
+            // Stop pause/menu music and start game music
+            _audioController?.BeginGameMusic();
 
             // Start wave progression
             _waveCo = StartCoroutine(CoWaveProgression());
