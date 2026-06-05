@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Serialization;
 using CubiWare.Core.Logging;
  
 namespace ARcadeRush.Minigames.Shooter
@@ -27,6 +28,7 @@ namespace ARcadeRush.Minigames.Shooter
     public class GunController : MonoBehaviour
     {
         [Header("References")]
+        [FormerlySerializedAs("_audioSource")]
         [SerializeField] private GameAudioController _audioController;
 
         [Header("Audio Clips")]

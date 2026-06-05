@@ -86,10 +86,32 @@ namespace ARcadeRush.Minigames.Shooter
         /// <summary>Play a one-shot sound effect through the SFX channel.</summary>
         public void PlaySFX(AudioClip clip)
         {
-            if (_sfxSource != null && clip != null)
-            {
+            if (clip == null) return;
+            if (_sfxSource != null)
                 _sfxSource.PlayOneShot(clip, _sfxVolume);
+            else
+                AudioSource.PlayClipAtPoint(clip, UnityEngine.Camera.main?.transform.position ?? Vector3.zero, _sfxVolume);
+        }
+
+        /// <summary>
+        /// Transitions from the start-menu pause music directly into gameplay music.
+        /// Stops the pause source immediately and cross-fades to intensity level 1 (Low).
+        /// Call this from ShooterGame.BeginGame() instead of SetIntensity(1).
+        /// </summary>
+        public void BeginGameMusic()
+        {
+            StopAllCoroutines();
+            _isTransitioning = false;
+            _isPaused = false;
+
+            if (_pauseSource != null)
+            {
+                _pauseSource.volume = 0f;
+                _pauseSource.Stop();
             }
+
+            _currentIntensity = 0;
+            SetIntensity(1);
         }
 
         // Threshold near the loop end to trigger transition (seconds)
