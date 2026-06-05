@@ -170,7 +170,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// Call from ScriptController.OnElementStarted.
         /// </summary>
         /// <param name="gracePeriod">Seconds the bar stays frozen before fill/drain starts.</param>
-        public void Activate(EmotionLabel required, float gracePeriod = 8f)
+        public void Activate(EmotionLabel required, float gracePeriod = 6f)
         {
             _required            = required;
             _fillAmount          = 0.5f;
