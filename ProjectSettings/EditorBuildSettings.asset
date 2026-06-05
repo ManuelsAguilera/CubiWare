@@ -15,9 +15,6 @@ EditorBuildSettings:
     path: Assets/Scenes/MenuNinjaFruit.unity
     guid: 2d681a967f5b6464cbb94f99982356a0
   - enabled: 1
-    path: Assets/Scenes/FruitNinja.unity
-    guid: 3e9bf35f34168584ca286c1397ac27d8
-  - enabled: 1
     path: Assets/Scenes/Shooter.unity
     guid: 68cb9644510ae504e9e12848a6ce0241
   - enabled: 1

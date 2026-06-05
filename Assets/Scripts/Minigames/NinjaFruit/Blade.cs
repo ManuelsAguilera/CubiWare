@@ -33,7 +33,7 @@ public class Blade : MonoBehaviour
         // For now, we simulate "always slicing" if the hand is detected.
         if (useHandTracking && _handTracker != null)
         {
-            if (_handTracker.CurrentHandPosition != Vector2.zero)
+            if (_handTracker.IsHandDetected)
             {
                 if (!Slicing) StartSlicing();
                 ContinueSlicing();
