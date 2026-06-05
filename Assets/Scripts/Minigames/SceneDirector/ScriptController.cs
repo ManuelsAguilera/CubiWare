@@ -151,18 +151,23 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// Time limit is linearly interpolated from _timeLimitStart to _timeLimitEnd
         /// across the sequence.
         /// </summary>
-        public List<ScriptElement> GenerateLocalSequence()
+        /// <param name="timePerElement">
+        /// Seconds per element. Pass a positive value to override the serialized curve
+        /// (avoids Unity YAML cache issues). If ≤ 0, falls back to _timeLimitStart/_timeLimitEnd lerp.
+        /// </param>
+        public List<ScriptElement> GenerateLocalSequence(float timePerElement = -1f)
         {
             var list = new List<ScriptElement>(_sequenceLength);
-            // Cycle through non-Neutral emotions: Happy(1), Surprised(2), Angry(3)
             for (int i = 0; i < _sequenceLength; i++)
             {
                 float t = _sequenceLength > 1 ? (float)i / (_sequenceLength - 1) : 0f;
-                float timeLimit = Mathf.Lerp(_timeLimitStart, _timeLimitEnd, t);
+                float timeLimit = timePerElement > 0f
+                    ? timePerElement
+                    : Mathf.Lerp(_timeLimitStart, _timeLimitEnd, t);
                 list.Add(new ScriptElement
                 {
-                    RequiredEmotion = (EmotionLabel)(1 + (i % 3)), // 1=Happy, 2=Surprised, 3=Angry
-                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 8f)
+                    RequiredEmotion = (EmotionLabel)(1 + (i % 3)),
+                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 60f)
                 });
             }
             return list;

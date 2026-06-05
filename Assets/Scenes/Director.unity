@@ -1696,8 +1696,8 @@ MonoBehaviour:
   _emotionSprites: []
   _introText: {fileID: 1935814980}
   _sequenceLength: 3
-  _timeLimitStart: 6
-  _timeLimitEnd: 3
+  _timeLimitStart: 10
+  _timeLimitEnd: 10
   _hardcodedSequence:
   - RequiredEmotion: 1
     TimeLimit: 5
