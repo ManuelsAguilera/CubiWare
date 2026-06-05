@@ -361,11 +361,11 @@ public class GameManagerFruit : MonoBehaviour, IMiniGame
         Time.timeScale = 1f;
         if (SceneLoader.Instance != null)
         {
-            SceneLoader.Instance.LoadSceneAsync("MainMenuNinjaFruit");
+            SceneLoader.Instance.LoadSceneAsync("MenuNinjaFruit");
         }
         else
         {
-            SceneManager.LoadScene("MainMenuNinjaFruit");
+            SceneManager.LoadScene("MenuNinjaFruit");
         }
     }
 }
