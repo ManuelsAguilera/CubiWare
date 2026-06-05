@@ -63,6 +63,11 @@ namespace ARcadeRush.Minigames.SceneDirector
         private int   _score;
         private int   _elementsPassed;
 
+        // ── Lives ─────────────────────────────────────────────────────────────
+        private const int MaxLives = 3;
+        private int _lives;
+        private TextMeshProUGUI _livesText;
+
         // ── Emotion ───────────────────────────────────────────────────────────
         private EmotionLabel _lastSimulated = EmotionLabel.Neutral;
 
@@ -247,6 +252,8 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             _gamePanel?.SetActive(true);
             _state = State.Playing;
+            _lives = MaxLives;
+            UpdateLivesUI();
 
             // Clear default "New Text" from TMP elements before ScriptController sets them
             if (_emotionText  != null) _emotionText.text  = "";
@@ -359,22 +366,46 @@ namespace ARcadeRush.Minigames.SceneDirector
             Script?.PassCurrentElement();
         }
 
-        private void OnBarEmptied()
+        private void OnBarEmptied()     => HandleElementFail();
+        private void OnCountdownExpired() => HandleElementFail();
+
+        private void HandleElementFail()
         {
             if (_elementResolved) return;
             _elementResolved = true;
+
+            Bar?.Deactivate();
             Countdown?.Stop();
-            Script?.FailCurrentElement();
-            StartCoroutine(EndRound(won: false));
+
+            _lives--;
+            UpdateLivesUI();
+
+            Debug.Log($"[Director] ❤ vida perdida — quedan {_lives}/{MaxLives}");
+
+            Script?.FailCurrentElement(); // dispara OnElementFailed (feedback visual/audio)
+
+            if (_lives > 0)
+                StartCoroutine(RetryCurrentElement());
+            else
+                StartCoroutine(EndRound(won: false));
         }
 
-        private void OnCountdownExpired()
+        private IEnumerator RetryCurrentElement()
         {
-            if (_elementResolved) return;
-            _elementResolved = true;
-            Bar?.Deactivate();
-            Script?.FailCurrentElement();
-            StartCoroutine(EndRound(won: false));
+            yield return new WaitForSeconds(1.2f);
+            if (_state != State.Playing) yield break;
+
+            _elementResolved = false;
+            var el = Script.CurrentElement;
+            Debug.Log($"[Director] 🔄 reintentando {el.RequiredEmotion} (vidas={_lives})");
+            Bar?.Activate(el.RequiredEmotion);
+            Countdown?.StartCountdown(el.TimeLimit);
+        }
+
+        private void UpdateLivesUI()
+        {
+            if (_livesText != null)
+                _livesText.text = new string('♥', _lives) + new string('♡', MaxLives - _lives);
         }
 
         // ── Round end ─────────────────────────────────────────────────────────
@@ -456,6 +487,23 @@ namespace ARcadeRush.Minigames.SceneDirector
             StyleText(_progressText, 26, new Color(0.67f, 0.67f, 0.67f, 1f), // #AAAAAA
                 new Vector2(0.08f, 0.09f), new Vector2(110, 40));
             if (_progressText != null) _progressText.alignment = TextAlignmentOptions.Left;
+
+            // ── Lives — top center ────────────────────────────────────────────
+            if (_livesText == null)
+            {
+                var canvas = FindCanvasInScene();
+                if (canvas != null)
+                {
+                    var go = new GameObject("LivesText");
+                    go.layer = 5;
+                    go.AddComponent<RectTransform>();
+                    go.transform.SetParent(_gamePanel != null ? _gamePanel.transform : canvas.transform, false);
+                    _livesText = go.AddComponent<TextMeshProUGUI>();
+                }
+            }
+            StyleText(_livesText, 36, new Color(1f, 0.3f, 0.3f, 1f),
+                new Vector2(0.5f, 0.95f), new Vector2(160, 50));
+            if (_livesText != null) _livesText.alignment = TextAlignmentOptions.Center;
         }
 
         private static void StyleText(TextMeshProUGUI tmp, float size, Color color,
