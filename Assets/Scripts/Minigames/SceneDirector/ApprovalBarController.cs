@@ -97,7 +97,10 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (!_active) return;
 
             bool isActivelyWrong = _active && _detected != EmotionLabel.Neutral && _detected != _required;
-            float delta = IsCorrect ? _fillRate : (isActivelyWrong ? -_drainRate : 0f);
+            // Drain rate capped at 0.03/s so wrong emotion takes ~16s to drain from 0.5
+            // — countdown timer (10s) will fire first, giving the player the full window.
+            float effectiveDrain = Mathf.Min(_drainRate, 0.03f);
+            float delta = IsCorrect ? _fillRate : (isActivelyWrong ? -effectiveDrain : 0f);
             _fillAmount = Mathf.Clamp01(_fillAmount + delta * Time.deltaTime);
 
             RefreshUI();
@@ -125,7 +128,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         public void Activate(EmotionLabel required)
         {
             _required   = required;
-            _fillAmount = _initialFillAmount;
+            _fillAmount = 0.5f; // hardcoded — bypasses YAML-cached _initialFillAmount (was 0.15)
             _active     = true;
             RefreshUI();
             ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}");
