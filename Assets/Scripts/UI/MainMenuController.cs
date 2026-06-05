@@ -32,6 +32,8 @@ namespace ARcadeRush.UI
 
         private readonly ServiceLogger _logger = ServiceLogger.Instance;
 
+        private TMP_Text _cameraToggleText;
+
         private void Start()
         {
             _logger.LogInfo("MainMenuController",
@@ -99,6 +101,61 @@ namespace ARcadeRush.UI
             {
                 _lastScoreText.text = _scorePrefix + GameManager.Instance.LastScore;
             }
+
+            BuildCameraToggleButton();
+        }
+
+        private void Update()
+        {
+            if (_cameraToggleText != null && CameraFeedCtrl.Instance != null)
+                _cameraToggleText.text = CameraFeedCtrl.Instance.IsPlaying ? "Camara: ON" : "Camara: OFF";
+        }
+
+        private void BuildCameraToggleButton()
+        {
+            var parent = _mainMenuPanel != null ? _mainMenuPanel.transform : transform;
+
+            var go = new GameObject("CameraToggleBtn");
+            go.transform.SetParent(parent, false);
+
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot     = new Vector2(1f, 0f);
+            rt.anchoredPosition = new Vector2(-20f, 20f);
+            rt.sizeDelta = new Vector2(160f, 44f);
+
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.1f, 0.1f, 0.1f, 0.85f);
+
+            var btn = go.AddComponent<Button>();
+            var colors = btn.colors;
+            colors.highlightedColor = new Color(0.25f, 0.25f, 0.25f, 1f);
+            btn.colors = colors;
+            btn.onClick.AddListener(ToggleCamera);
+
+            var textGO = new GameObject("Label");
+            textGO.transform.SetParent(go.transform, false);
+            var textRT = textGO.AddComponent<RectTransform>();
+            textRT.anchorMin = Vector2.zero;
+            textRT.anchorMax = Vector2.one;
+            textRT.offsetMin = textRT.offsetMax = Vector2.zero;
+
+            _cameraToggleText = textGO.AddComponent<TextMeshProUGUI>();
+            _cameraToggleText.fontSize  = 16;
+            _cameraToggleText.color     = Color.white;
+            _cameraToggleText.alignment = TextAlignmentOptions.Center;
+            _cameraToggleText.text = CameraFeedCtrl.Instance != null && CameraFeedCtrl.Instance.IsPlaying
+                ? "Camara: ON" : "Camara: OFF";
+        }
+
+        private void ToggleCamera()
+        {
+            if (CameraFeedCtrl.Instance == null) return;
+            if (CameraFeedCtrl.Instance.IsPlaying)
+                CameraFeedCtrl.Instance.StopCamera();
+            else
+                CameraFeedCtrl.Instance.StartCamera();
         }
 
         private void ShowGameSelector()

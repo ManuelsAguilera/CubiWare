@@ -37,7 +37,7 @@ namespace ARcadeRush.Core
                 return;
             }
             Instance = this;
-            
+
             try
             {
                 _provider = new CameraFeedProvider(_requestedWidth, _requestedHeight);
@@ -64,6 +64,7 @@ namespace ARcadeRush.Core
 
         public void StartCamera()
         {
+            if (IsPlaying) return;
             _logger.LogInfo("CameraFeedCtrl", "StartCamera called.");
             StartCoroutine(StartCameraRoutine());
         }
