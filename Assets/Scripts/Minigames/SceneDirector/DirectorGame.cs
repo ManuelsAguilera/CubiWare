@@ -301,7 +301,7 @@ namespace ARcadeRush.Minigames.SceneDirector
             }
             HideCanvasGroup(_countdownOverlay);
 
-            var seq = Script?.GenerateLocalSequence() ?? new List<ScriptElement>();
+            var seq = Script?.GenerateLocalSequence(timePerElement: 10f) ?? new List<ScriptElement>();
             Script?.LoadSequence(seq);
         }
 
