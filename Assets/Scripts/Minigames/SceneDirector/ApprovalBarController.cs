@@ -69,6 +69,9 @@ namespace ARcadeRush.Minigames.SceneDirector
         private EmotionLabel _detected = EmotionLabel.Neutral;
         private float        _fillAmount = 0f;
         private bool         _active     = false;
+        private float        _graceTimeRemaining = 0f;
+
+        public bool InGracePeriod => _graceTimeRemaining > 0f;
 
         public float        FillAmount       => _fillAmount;
         public bool         IsActive         => _active;
@@ -96,11 +99,16 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (!_active) return;
 
+            // Grace period: bar is frozen while player reads the required emotion
+            if (_graceTimeRemaining > 0f)
+            {
+                _graceTimeRemaining -= Time.deltaTime;
+                RefreshUI();
+                return;
+            }
+
             bool isActivelyWrong = _active && _detected != EmotionLabel.Neutral && _detected != _required;
-            // Drain rate capped at 0.03/s so wrong emotion takes ~16s to drain from 0.5
-            // — countdown timer (10s) will fire first, giving the player the full window.
-            float effectiveDrain = Mathf.Min(_drainRate, 0.03f);
-            float delta = IsCorrect ? _fillRate : (isActivelyWrong ? -effectiveDrain : 0f);
+            float delta = IsCorrect ? _fillRate : (isActivelyWrong ? -_drainRate : 0f);
             _fillAmount = Mathf.Clamp01(_fillAmount + delta * Time.deltaTime);
 
             RefreshUI();
@@ -125,14 +133,16 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// Starts a fresh bar for the given required emotion.
         /// Call from ScriptController.OnElementStarted.
         /// </summary>
-        public void Activate(EmotionLabel required)
+        /// <param name="gracePeriod">Seconds the bar stays frozen before fill/drain starts.</param>
+        public void Activate(EmotionLabel required, float gracePeriod = 8f)
         {
-            _required   = required;
-            _fillAmount = 0.5f; // hardcoded — bypasses YAML-cached _initialFillAmount (was 0.15)
-            _active     = true;
+            _required           = required;
+            _fillAmount         = 0.5f;
+            _active             = true;
+            _graceTimeRemaining = gracePeriod;
             RefreshUI();
-            Debug.Log($"[Bar] Activate → required={required}  fill={_fillAmount:F2}  effectiveDrain={Mathf.Min(_drainRate, 0.03f):F3}/s");
-            ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}");
+            Debug.Log($"[Bar] Activate → required={required}  fill={_fillAmount:F2}  grace={gracePeriod:F0}s  drain={_drainRate:F3}/s");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}  grace: {gracePeriod:F0}s");
         }
 
         /// <summary>
@@ -141,7 +151,8 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// </summary>
         public void Deactivate()
         {
-            _active = false;
+            _active             = false;
+            _graceTimeRemaining = 0f;
             RefreshUI();
         }
 
