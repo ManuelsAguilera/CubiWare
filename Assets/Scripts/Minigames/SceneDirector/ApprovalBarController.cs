@@ -96,7 +96,8 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (!_active) return;
 
-            float delta = IsCorrect ? _fillRate : -_drainRate;
+            bool isActivelyWrong = _active && _detected != EmotionLabel.Neutral && _detected != _required;
+            float delta = IsCorrect ? _fillRate : (isActivelyWrong ? -_drainRate : 0f);
             _fillAmount = Mathf.Clamp01(_fillAmount + delta * Time.deltaTime);
 
             RefreshUI();

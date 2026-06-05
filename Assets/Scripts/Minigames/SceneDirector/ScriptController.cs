@@ -162,7 +162,7 @@ namespace ARcadeRush.Minigames.SceneDirector
                 list.Add(new ScriptElement
                 {
                     RequiredEmotion = (EmotionLabel)(1 + (i % 3)), // 1=Happy, 2=Surprised, 3=Angry
-                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 8f)
+                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 60f)
                 });
             }
             return list;
