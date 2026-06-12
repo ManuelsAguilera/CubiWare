@@ -173,6 +173,11 @@ namespace ARcadeRush.Minigames.SceneDirector
         private EmotionLabel _lastLoggedEmotion = EmotionLabel.Neutral;
         private float        _diagTimer          = 0f;
 
+        // ── Audience dialogue (LLM) ───────────────────────────────────────────
+        private readonly AudienceDialogueProvider _audienceDialogue = new AudienceDialogueProvider();
+        private float _dialogueCooldown = 0f;
+        private float _prevFill         = 0.5f;
+
         private void Update()
         {
             if (_state != State.Playing) return;
@@ -200,6 +205,27 @@ namespace ARcadeRush.Minigames.SceneDirector
             }
 
             Bar?.SetDetectedEmotion(active);
+
+            // Audience dialogue on bar threshold crossings (cooldown stops flapping spam)
+            _dialogueCooldown -= Time.deltaTime;
+            if (Bar != null && Bar.IsActive && !Bar.InGracePeriod)
+            {
+                float fill = Bar.FillAmount;
+                if (_dialogueCooldown <= 0f)
+                {
+                    if (fill >= 0.75f && _prevFill < 0.75f)
+                    {
+                        Audience?.ShowDialogue(_audienceDialogue.NextApproval());
+                        _dialogueCooldown = 3f;
+                    }
+                    else if (fill <= 0.25f && _prevFill > 0.25f)
+                    {
+                        Audience?.ShowDialogue(_audienceDialogue.NextDisapproval());
+                        _dialogueCooldown = 3f;
+                    }
+                }
+                _prevFill = fill;
+            }
 
             // Periodic diagnostic log every 3s (remove after debugging)
             _diagTimer += Time.deltaTime;
@@ -326,6 +352,11 @@ namespace ARcadeRush.Minigames.SceneDirector
             _elementResolved = false;
             Audience?.SetIdle();
 
+            // One LLM request per element — lines are cached and reused on retries.
+            _audienceDialogue.PrepareFor(el.RequiredEmotion, _deps?.LLM);
+            _dialogueCooldown = 0f;
+            _prevFill         = 0.5f;
+
             if (_emotionText != null)  _emotionText.text  = el.RequiredEmotion.ToString().ToUpper();
             if (_progressText != null) _progressText.text = $"{Script.CurrentIndex + 1} / {Script.TotalElements}";
 
@@ -341,12 +372,14 @@ namespace ARcadeRush.Minigames.SceneDirector
             _score += 100;
             _deps?.GameManager?.AddScore(100);
             Audience?.ReactPositive();
+            Audience?.ShowDialogue(_audienceDialogue.NextApproval());
             StartCoroutine(ShowFeedback("¡CORRECTO!", Color.green));
         }
 
         private void OnElementFailed(ScriptElement el)
         {
             Audience?.ReactNegative();
+            Audience?.ShowDialogue(_audienceDialogue.NextDisapproval());
             StartCoroutine(ShowFeedback("¡FALLADO!", Color.red));
         }
 
