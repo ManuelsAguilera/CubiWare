@@ -45,7 +45,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private TextMeshProUGUI _progressText;
         [Tooltip("Icon swapped per required emotion. Assign one Image; swap Sprite from _emotionSprites.")]
         [SerializeField] private Image           _emotionIcon;
-        [Tooltip("Sprites indexed by EmotionLabel cast to int: [0]=Neutral [1]=Happy [2]=Surprised [3]=Angry.")]
+        [Tooltip("Sprites indexed by EmotionLabel cast to int: [0]=Neutral [1]=Happy [2]=Surprised [3]=Angry [4]=Disgust [5]=Fear [6]=Sad. Indices 4-6 may stay null until art exists.")]
         [SerializeField] private Sprite[]        _emotionSprites;
         [Tooltip("Text that shows the LLM-generated intro. Displayed before countdown starts.")]
         [SerializeField] private TextMeshProUGUI _introText;
@@ -158,15 +158,23 @@ namespace ARcadeRush.Minigames.SceneDirector
         public List<ScriptElement> GenerateLocalSequence(float timePerElement = -1f)
         {
             var list = new List<ScriptElement>(_sequenceLength);
+            // Random pick limited to emotions that have sprites and reliable detection.
+            EmotionLabel previous = EmotionLabel.Neutral;
             for (int i = 0; i < _sequenceLength; i++)
             {
                 float t = _sequenceLength > 1 ? (float)i / (_sequenceLength - 1) : 0f;
                 float timeLimit = timePerElement > 0f
                     ? timePerElement
                     : Mathf.Lerp(_timeLimitStart, _timeLimitEnd, t);
+                EmotionLabel emotion;
+                do
+                {
+                    emotion = (EmotionLabel)UnityEngine.Random.Range(1, 4); // Happy, Surprised, Angry
+                } while (emotion == previous);
+                previous = emotion;
                 list.Add(new ScriptElement
                 {
-                    RequiredEmotion = (EmotionLabel)(1 + (i % 3)),
+                    RequiredEmotion = emotion,
                     TimeLimit = Mathf.Clamp(timeLimit, 3f, 60f)
                 });
             }

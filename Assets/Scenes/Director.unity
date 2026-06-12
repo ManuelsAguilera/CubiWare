@@ -1814,7 +1814,14 @@ MonoBehaviour:
   _nextEmotionText: {fileID: 686978861}
   _progressText: {fileID: 1300089609}
   _emotionIcon: {fileID: 162364880}
-  _emotionSprites: []
+  _emotionSprites:
+  - {fileID: 21300000, guid: fbe4f817364e40641a8a54cb38aab652, type: 3}
+  - {fileID: 21300000, guid: 18db6a6b27f92c748ac6ef4d15dd1c24, type: 3}
+  - {fileID: 21300000, guid: cd368bc87d7b5e6478a37a5efc9f99e6, type: 3}
+  - {fileID: 21300000, guid: eef9d23218eda744c9192178dcc4a6f1, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   _introText: {fileID: 1935814980}
   _sequenceLength: 3
   _timeLimitStart: 10
