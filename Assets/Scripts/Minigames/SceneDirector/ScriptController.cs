@@ -69,6 +69,14 @@ namespace ARcadeRush.Minigames.SceneDirector
             new ScriptElement { RequiredEmotion = EmotionLabel.Angry,     TimeLimit = 5f },
         };
 
+        // ── Active emotion pool ─────────────────────────────────────────────────────
+        // Emotions that currently have icon sprites AND reliable detection.
+        // Expand this when Disgust/Fear/Sad sprites exist (sprite indices 4-6).
+        private static readonly EmotionLabel[] _activePool =
+        {
+            EmotionLabel.Happy, EmotionLabel.Surprised, EmotionLabel.Angry,
+        };
+
         // ── State ─────────────────────────────────────────────────────────────────
         private List<ScriptElement> _sequence = new List<ScriptElement>();
         private int _currentIndex = -1;
@@ -158,7 +166,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         public List<ScriptElement> GenerateLocalSequence(float timePerElement = -1f)
         {
             var list = new List<ScriptElement>(_sequenceLength);
-            // Random pick limited to emotions that have sprites and reliable detection.
+            // Random pick limited to the active pool (emotions with sprites + reliable detection).
             EmotionLabel previous = EmotionLabel.Neutral;
             for (int i = 0; i < _sequenceLength; i++)
             {
@@ -169,8 +177,8 @@ namespace ARcadeRush.Minigames.SceneDirector
                 EmotionLabel emotion;
                 do
                 {
-                    emotion = (EmotionLabel)UnityEngine.Random.Range(1, 4); // Happy, Surprised, Angry
-                } while (emotion == previous);
+                    emotion = _activePool[UnityEngine.Random.Range(0, _activePool.Length)];
+                } while (_activePool.Length > 1 && emotion == previous); // avoid consecutive repeats
                 previous = emotion;
                 list.Add(new ScriptElement
                 {
@@ -229,14 +237,14 @@ namespace ARcadeRush.Minigames.SceneDirector
         private void RefreshUI()
         {
             if (_currentEmotionText != null)
-                _currentEmotionText.text = IsActive ? CurrentElement.RequiredEmotion.ToString().ToUpper() : "—";
+                _currentEmotionText.text = IsActive ? EmotionEs.ToSpanish(CurrentElement.RequiredEmotion) : "—";
 
             if (_nextEmotionText != null)
             {
                 int nextIndex = _currentIndex + 1;
                 _nextEmotionText.text = nextIndex < _sequence.Count
-                    ? $"Next: {_sequence[nextIndex].RequiredEmotion}"
-                    : "Next: —";
+                    ? $"Siguiente: {EmotionEs.ToSpanish(_sequence[nextIndex].RequiredEmotion)}"
+                    : ""; // last element → hide "Siguiente" instead of showing a dash
             }
 
             if (_progressText != null)
