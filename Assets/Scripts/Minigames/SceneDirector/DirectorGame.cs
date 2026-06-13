@@ -498,21 +498,22 @@ namespace ARcadeRush.Minigames.SceneDirector
                 // White: the segmented red→green sprite provides the color.
                 _barFill.color      = Color.white;
 
-                // Wide strip above the audience (5%–95% horizontally, 17.5%–23.5% vertically)
+                // Position/size are authored in the Editor (ApprovalBarFill's RectTransform) —
+                // not overridden here, so manual layout tweaks persist into Play.
                 var rt = _barFill.rectTransform;
-                rt.anchorMin = new Vector2(0.05f, 0.175f);
-                rt.anchorMax = new Vector2(0.95f, 0.235f);
-                rt.offsetMin = rt.offsetMax = Vector2.zero;
 
-                // Dark background behind the bar
+                // Dark background behind the bar — mirrors whatever rect the Editor sets.
                 var bgGO = new GameObject("ApprovalBarBG");
                 bgGO.layer = 5;
                 var bgRt = bgGO.AddComponent<RectTransform>();
                 bgGO.transform.SetParent(_barFill.transform.parent, false);
                 bgGO.transform.SetSiblingIndex(_barFill.transform.GetSiblingIndex());
-                bgRt.anchorMin = new Vector2(0.05f, 0.175f);
-                bgRt.anchorMax = new Vector2(0.95f, 0.235f);
-                bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
+                bgRt.anchorMin        = rt.anchorMin;
+                bgRt.anchorMax        = rt.anchorMax;
+                bgRt.offsetMin        = rt.offsetMin;
+                bgRt.offsetMax        = rt.offsetMax;
+                bgRt.anchoredPosition = rt.anchoredPosition;
+                bgRt.sizeDelta        = rt.sizeDelta;
                 bgGO.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 1f);
             }
 
@@ -530,15 +531,12 @@ namespace ARcadeRush.Minigames.SceneDirector
             StyleText(nextLabel, 26, new Color(0f, 0.706f, 1f, 1f),  // #00B4FF
                 new Vector2(0.865f, 0.44f), new Vector2(400, 50));
 
-            // ── Timer — top-left, above the bar, changes color near zero ──────
-            StyleText(_timerText, 42, _timerNormal,
-                new Vector2(0.12f, 0.275f), new Vector2(300, 60));
-            if (_timerText != null) _timerText.alignment = TextAlignmentOptions.Center;
+            // ── Timer — changes color near zero. Position/size set in the Editor.
+            StyleTextCosmetic(_timerText, 42, _timerNormal, TextAlignmentOptions.Center);
 
-            // ── Progress — top-center, above the bar ──────────────────────────
-            StyleText(_progressText, 36, new Color(0.67f, 0.67f, 0.67f, 1f), // #AAAAAA
-                new Vector2(0.5f, 0.275f), new Vector2(400, 70));
-            if (_progressText != null) _progressText.alignment = TextAlignmentOptions.Center;
+            // ── Progress — count label. Position/size set in the Editor.
+            StyleTextCosmetic(_progressText, 36, new Color(0.67f, 0.67f, 0.67f, 1f), // #AAAAAA
+                TextAlignmentOptions.Center);
 
             // ── Lives — top center ────────────────────────────────────────────
             if (_livesText == null)
@@ -570,6 +568,20 @@ namespace ARcadeRush.Minigames.SceneDirector
             rt.anchorMin = rt.anchorMax = anchor;
             rt.sizeDelta  = sizePixels;
             rt.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>
+        /// Applies font size/color/alignment only — leaves the RectTransform
+        /// (anchors, size, position) as authored in the Editor, so manual
+        /// layout edits in the scene persist into Play.
+        /// </summary>
+        private static void StyleTextCosmetic(TextMeshProUGUI tmp, float size, Color color,
+            TextAlignmentOptions alignment)
+        {
+            if (tmp == null) return;
+            tmp.fontSize  = size;
+            tmp.color     = color;
+            tmp.alignment = alignment;
         }
 
         // ── Menu panels ───────────────────────────────────────────────────────
