@@ -215,8 +215,8 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (_fillBar != null)
             {
+                // Color comes from the segmented red→green sprite — no tint.
                 _fillBar.fillAmount = _fillAmount;
-                _fillBar.color      = Color.Lerp(_colorDraining, _colorFilling, _fillAmount);
             }
 
             if (_feedbackText != null)
@@ -227,12 +227,12 @@ namespace ARcadeRush.Minigames.SceneDirector
                 }
                 else if (IsCorrect)
                 {
-                    _feedbackText.text  = "CORRECT";
+                    _feedbackText.text  = "¡CORRECTO!";
                     _feedbackText.color = _colorFilling;
                 }
                 else
                 {
-                    _feedbackText.text  = $"SHOW: {_required}";
+                    _feedbackText.text  = $"MUESTRA: {EmotionEs.ToSpanish(_required)}";
                     _feedbackText.color = _fillAmount <= _warningThreshold ? _colorDraining : Color.white;
                 }
             }
