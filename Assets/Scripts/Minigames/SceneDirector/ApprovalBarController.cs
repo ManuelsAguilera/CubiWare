@@ -69,6 +69,12 @@ namespace ARcadeRush.Minigames.SceneDirector
         private EmotionLabel _detected = EmotionLabel.Neutral;
         private float        _fillAmount = 0f;
         private bool         _active     = false;
+        private float        _graceTimeRemaining = 0f;
+        private bool         _graceJustEnded     = false;
+        private int          _lastLoggedGraceSec = -1;
+        private int          _lastLoggedActiveSec = -1;
+
+        public bool InGracePeriod => _graceTimeRemaining > 0f;
 
         public float        FillAmount       => _fillAmount;
         public bool         IsActive         => _active;
@@ -96,20 +102,62 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (!_active) return;
 
-            float delta = IsCorrect ? _fillRate : -_drainRate;
+            // ── GRACE PHASE — bar frozen, player reads the emotion ─────────────
+            if (_graceTimeRemaining > 0f)
+            {
+                _graceTimeRemaining -= Time.deltaTime;
+
+                int sec = Mathf.CeilToInt(_graceTimeRemaining);
+                if (sec != _lastLoggedGraceSec && sec >= 0)
+                {
+                    _lastLoggedGraceSec = sec;
+                    Debug.Log($"[Bar] 📖 leyendo {_required}... {sec}s restantes de gracia");
+                }
+
+                if (_graceTimeRemaining <= 0f)
+                    _graceJustEnded = true;
+
+                RefreshUI();
+                return;
+            }
+
+            // ── ONE-TIME LOG when grace ends ───────────────────────────────────
+            if (_graceJustEnded)
+            {
+                _graceJustEnded = false;
+                string arrow = IsCorrect ? "✓ CORRECTO" : (_detected == EmotionLabel.Neutral ? "~ neutral" : "✗ incorrecto");
+                Debug.Log($"[Bar] 🎬 ¡ACTÚA AHORA! | required={_required} | detected={_detected} ({arrow}) | fill={_fillAmount:F2}");
+            }
+
+            // ── ACTIVE PHASE — fill/drain based on emotion ─────────────────────
+            bool isActivelyWrong = _detected != EmotionLabel.Neutral && _detected != _required;
+            float delta = IsCorrect ? _fillRate : (isActivelyWrong ? -_drainRate : 0f);
             _fillAmount = Mathf.Clamp01(_fillAmount + delta * Time.deltaTime);
+
+            // Per-second log during active phase
+            int activeSec = Mathf.CeilToInt(_fillAmount * 10); // proxy — log on fill change ~10%
+            float fillRounded = Mathf.Round(_fillAmount * 10f) / 10f;
+            int fillBucket = Mathf.RoundToInt(fillRounded * 10);
+            if (fillBucket != _lastLoggedActiveSec)
+            {
+                _lastLoggedActiveSec = fillBucket;
+                string dir = delta > 0 ? "↑ subiendo" : (delta < 0 ? "↓ bajando" : "— estable");
+                Debug.Log($"[Bar] 🎭 actuando | detected={_detected} | fill={_fillAmount:F2} {dir}");
+            }
 
             RefreshUI();
 
             if (_fillAmount >= 1f)
             {
                 _active = false;
+                Debug.Log($"[Bar] ✅ CORRECTO — barra llena");
                 ServiceLogger.Instance.LogInfo(LogServiceName, "Bar filled — emotion confirmed.");
                 OnBarFilled?.Invoke();
             }
             else if (_fillAmount <= 0f)
             {
                 _active = false;
+                Debug.Log($"[Bar] ❌ FALLADO — barra vacía | detected={_detected}");
                 ServiceLogger.Instance.LogInfo(LogServiceName, "Bar emptied — emotion failed.");
                 OnBarEmptied?.Invoke();
             }
@@ -121,13 +169,19 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// Starts a fresh bar for the given required emotion.
         /// Call from ScriptController.OnElementStarted.
         /// </summary>
-        public void Activate(EmotionLabel required)
+        /// <param name="gracePeriod">Seconds the bar stays frozen before fill/drain starts.</param>
+        public void Activate(EmotionLabel required, float gracePeriod = 3f)
         {
-            _required   = required;
-            _fillAmount = _initialFillAmount;
-            _active     = true;
+            _required            = required;
+            _fillAmount          = 0.5f;
+            _active              = true;
+            _graceTimeRemaining  = gracePeriod;
+            _graceJustEnded      = false;
+            _lastLoggedGraceSec  = -1;
+            _lastLoggedActiveSec = -1;
             RefreshUI();
-            ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}");
+            Debug.Log($"[Bar] ► INICIO: {required} | gracia={gracePeriod:F0}s | fill=0.50 | drain={_drainRate:F2}/s");
+            ServiceLogger.Instance.LogInfo(LogServiceName, $"Bar activated — required: {required}  grace: {gracePeriod:F0}s");
         }
 
         /// <summary>
@@ -136,7 +190,11 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// </summary>
         public void Deactivate()
         {
-            _active = false;
+            _active              = false;
+            _graceTimeRemaining  = 0f;
+            _graceJustEnded      = false;
+            _lastLoggedGraceSec  = -1;
+            _lastLoggedActiveSec = -1;
             RefreshUI();
         }
 
@@ -157,8 +215,8 @@ namespace ARcadeRush.Minigames.SceneDirector
         {
             if (_fillBar != null)
             {
+                // Color comes from the segmented red→green sprite — no tint.
                 _fillBar.fillAmount = _fillAmount;
-                _fillBar.color      = Color.Lerp(_colorDraining, _colorFilling, _fillAmount);
             }
 
             if (_feedbackText != null)
@@ -169,12 +227,12 @@ namespace ARcadeRush.Minigames.SceneDirector
                 }
                 else if (IsCorrect)
                 {
-                    _feedbackText.text  = "CORRECT";
+                    _feedbackText.text  = "¡CORRECTO!";
                     _feedbackText.color = _colorFilling;
                 }
                 else
                 {
-                    _feedbackText.text  = $"SHOW: {_required}";
+                    _feedbackText.text  = $"MUESTRA: {EmotionEs.ToSpanish(_required)}";
                     _feedbackText.color = _fillAmount <= _warningThreshold ? _colorDraining : Color.white;
                 }
             }

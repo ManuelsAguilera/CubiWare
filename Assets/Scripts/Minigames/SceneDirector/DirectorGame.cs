@@ -63,6 +63,11 @@ namespace ARcadeRush.Minigames.SceneDirector
         private int   _score;
         private int   _elementsPassed;
 
+        // ── Lives ─────────────────────────────────────────────────────────────
+        private const int MaxLives = 3;
+        private int _lives;
+        private TextMeshProUGUI _livesText;
+
         // ── Emotion ───────────────────────────────────────────────────────────
         private EmotionLabel _lastSimulated = EmotionLabel.Neutral;
 
@@ -168,6 +173,11 @@ namespace ARcadeRush.Minigames.SceneDirector
         private EmotionLabel _lastLoggedEmotion = EmotionLabel.Neutral;
         private float        _diagTimer          = 0f;
 
+        // ── Audience dialogue (LLM) ───────────────────────────────────────────
+        private readonly AudienceDialogueProvider _audienceDialogue = new AudienceDialogueProvider();
+        private float _dialogueCooldown = 0f;
+        private float _prevFill         = 0.5f;
+
         private void Update()
         {
             if (_state != State.Playing) return;
@@ -195,6 +205,27 @@ namespace ARcadeRush.Minigames.SceneDirector
             }
 
             Bar?.SetDetectedEmotion(active);
+
+            // Audience dialogue on bar threshold crossings (cooldown stops flapping spam)
+            _dialogueCooldown -= Time.deltaTime;
+            if (Bar != null && Bar.IsActive && !Bar.InGracePeriod)
+            {
+                float fill = Bar.FillAmount;
+                if (_dialogueCooldown <= 0f)
+                {
+                    if (fill >= 0.75f && _prevFill < 0.75f)
+                    {
+                        Audience?.ShowDialogue(_audienceDialogue.NextApproval());
+                        _dialogueCooldown = 3f;
+                    }
+                    else if (fill <= 0.25f && _prevFill > 0.25f)
+                    {
+                        Audience?.ShowDialogue(_audienceDialogue.NextDisapproval());
+                        _dialogueCooldown = 3f;
+                    }
+                }
+                _prevFill = fill;
+            }
 
             // Periodic diagnostic log every 3s (remove after debugging)
             _diagTimer += Time.deltaTime;
@@ -247,6 +278,8 @@ namespace ARcadeRush.Minigames.SceneDirector
 
             _gamePanel?.SetActive(true);
             _state = State.Playing;
+            _lives = MaxLives;
+            UpdateLivesUI();
 
             // Clear default "New Text" from TMP elements before ScriptController sets them
             if (_emotionText  != null) _emotionText.text  = "";
@@ -265,43 +298,62 @@ namespace ARcadeRush.Minigames.SceneDirector
                 Scenario.OnCloseComplete += OnCurtainClose;
             }
 
-            ServiceLogger.Instance.LogInfo(LOG, "Play clicked — opening curtain.");
-            Scenario?.Open();
+            ServiceLogger.Instance.LogInfo(LOG, "Play clicked — countdown on closed curtain, then opening.");
+            StartCoroutine(PlayIntroThenOpen());
         }
 
         private void OnExitClicked() => OnEnd();
 
         // ── Curtain events ────────────────────────────────────────────────────
 
-        private void OnCurtainOpen()
+        /// <summary>
+        /// Shows the big "3·2·1·Empieza la obra" countdown ON the closed curtain,
+        /// then opens the curtain. The sequence itself loads in OnCurtainOpen once
+        /// the curtain finishes opening (so the grace period starts on the open stage).
+        /// </summary>
+        private IEnumerator PlayIntroThenOpen()
         {
-            ServiceLogger.Instance.LogInfo(LOG, "Curtain open — starting sequence.");
-            StartCoroutine(StartWithCountdown());
-        }
+            Debug.Log($"[Director] PlayIntroThenOpen — overlay={_countdownOverlay != null}, text={_countdownOverlayText != null}");
 
-        private IEnumerator StartWithCountdown()
-        {
-            Debug.Log($"[Director] StartWithCountdown — overlay={_countdownOverlay != null}, text={_countdownOverlayText != null}");
-
-            // Style countdown text on first use
             if (_countdownOverlayText != null)
             {
-                _countdownOverlayText.fontSize  = 120;
-                _countdownOverlayText.color     = Color.white;
-                _countdownOverlayText.fontStyle = FontStyles.Bold;
-                _countdownOverlayText.alignment = TextAlignmentOptions.Center;
+                // Procedural styling — large, centered, wide enough for "Empieza la obra".
+                _countdownOverlayText.fontSize             = 160;
+                _countdownOverlayText.enableAutoSizing     = true;
+                _countdownOverlayText.fontSizeMin          = 80;
+                _countdownOverlayText.fontSizeMax          = 200;
+                _countdownOverlayText.color                = Color.white;
+                _countdownOverlayText.fontStyle            = FontStyles.Bold;
+                _countdownOverlayText.alignment            = TextAlignmentOptions.Center;
+                _countdownOverlayText.enableWordWrapping   = true;
+                var trt = _countdownOverlayText.rectTransform;
+                trt.anchorMin = trt.anchorMax = new Vector2(0.5f, 0.5f);
+                trt.sizeDelta = new Vector2(1400f, 400f);
+                trt.anchoredPosition = Vector2.zero;
             }
 
-            // 3-2-1 overlay
+            // Draw the countdown ON TOP of the closed curtain.
+            if (_countdownOverlay != null)
+                _countdownOverlay.transform.SetAsLastSibling();
+
             ShowCanvasGroup(_countdownOverlay);
-            foreach (string n in new[] { "3", "2", "1", "¡ACCIÓN!" })
+            foreach (string n in new[] { "3", "2", "1", "Empieza la obra" })
             {
                 if (_countdownOverlayText != null) _countdownOverlayText.text = n;
-                yield return new WaitForSeconds(n == "¡ACCIÓN!" ? 0.8f : 0.7f);
+                yield return new WaitForSeconds(n == "Empieza la obra" ? 1.0f : 0.7f);
             }
             HideCanvasGroup(_countdownOverlay);
 
-            var seq = Script?.GenerateLocalSequence() ?? new List<ScriptElement>();
+            // Now raise the curtain — OnCurtainOpen loads the sequence when it finishes.
+            ServiceLogger.Instance.LogInfo(LOG, "Countdown done — opening curtain.");
+            Scenario?.Open();
+        }
+
+        private void OnCurtainOpen()
+        {
+            ServiceLogger.Instance.LogInfo(LOG, "Curtain open — loading sequence.");
+            var seq = Script?.GenerateLocalSequence(timePerElement: 10f) ?? new List<ScriptElement>();
+            Debug.Log($"[Director DIAG] seq.Count={seq.Count}  seq[0].TimeLimit={( seq.Count > 0 ? seq[0].TimeLimit.ToString("F1") : "N/A")}  Script.Instance={Script != null}");
             Script?.LoadSequence(seq);
         }
 
@@ -318,7 +370,12 @@ namespace ARcadeRush.Minigames.SceneDirector
             _elementResolved = false;
             Audience?.SetIdle();
 
-            if (_emotionText != null)  _emotionText.text  = el.RequiredEmotion.ToString().ToUpper();
+            // One LLM request per element — lines are cached and reused on retries.
+            _audienceDialogue.PrepareFor(el.RequiredEmotion, _deps?.LLM);
+            _dialogueCooldown = 0f;
+            _prevFill         = 0.5f;
+
+            if (_emotionText != null)  _emotionText.text  = EmotionEs.ToSpanish(el.RequiredEmotion);
             if (_progressText != null) _progressText.text = $"{Script.CurrentIndex + 1} / {Script.TotalElements}";
 
             Bar?.Activate(el.RequiredEmotion);
@@ -333,12 +390,14 @@ namespace ARcadeRush.Minigames.SceneDirector
             _score += 100;
             _deps?.GameManager?.AddScore(100);
             Audience?.ReactPositive();
+            Audience?.ShowDialogue(_audienceDialogue.NextApproval());
             StartCoroutine(ShowFeedback("¡CORRECTO!", Color.green));
         }
 
         private void OnElementFailed(ScriptElement el)
         {
             Audience?.ReactNegative();
+            Audience?.ShowDialogue(_audienceDialogue.NextDisapproval());
             StartCoroutine(ShowFeedback("¡FALLADO!", Color.red));
         }
 
@@ -358,22 +417,46 @@ namespace ARcadeRush.Minigames.SceneDirector
             Script?.PassCurrentElement();
         }
 
-        private void OnBarEmptied()
+        private void OnBarEmptied()     => HandleElementFail();
+        private void OnCountdownExpired() => HandleElementFail();
+
+        private void HandleElementFail()
         {
             if (_elementResolved) return;
             _elementResolved = true;
+
+            Bar?.Deactivate();
             Countdown?.Stop();
-            Script?.FailCurrentElement();
-            StartCoroutine(EndRound(won: false));
+
+            _lives--;
+            UpdateLivesUI();
+
+            Debug.Log($"[Director] ❤ vida perdida — quedan {_lives}/{MaxLives}");
+
+            Script?.FailCurrentElement(); // dispara OnElementFailed (feedback visual/audio)
+
+            if (_lives > 0)
+                StartCoroutine(RetryCurrentElement());
+            else
+                StartCoroutine(EndRound(won: false));
         }
 
-        private void OnCountdownExpired()
+        private IEnumerator RetryCurrentElement()
         {
-            if (_elementResolved) return;
-            _elementResolved = true;
-            Bar?.Deactivate();
-            Script?.FailCurrentElement();
-            StartCoroutine(EndRound(won: false));
+            yield return new WaitForSeconds(1.2f);
+            if (_state != State.Playing) yield break;
+
+            _elementResolved = false;
+            var el = Script.CurrentElement;
+            Debug.Log($"[Director] 🔄 reintentando {el.RequiredEmotion} (vidas={_lives})");
+            Bar?.Activate(el.RequiredEmotion);
+            Countdown?.StartCountdown(el.TimeLimit);
+        }
+
+        private void UpdateLivesUI()
+        {
+            if (_livesText != null)
+                _livesText.text = new string('♥', _lives) + new string('♡', MaxLives - _lives);
         }
 
         // ── Round end ─────────────────────────────────────────────────────────
@@ -410,51 +493,67 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (_barFill != null)
             {
                 _barFill.type       = Image.Type.Filled;
-                _barFill.fillMethod = Image.FillMethod.Horizontal;
-                _barFill.fillOrigin = (int)Image.OriginHorizontal.Left;
-                _barFill.color      = new Color(0f, 1f, 0.27f, 1f); // #00FF44
+                _barFill.fillMethod = Image.FillMethod.Vertical;
+                _barFill.fillOrigin = (int)Image.OriginVertical.Bottom;
+                // White: the segmented red→green sprite provides the color.
+                _barFill.color      = Color.white;
 
-                // Wide strip at the bottom (5%–95% horizontally, 5%–13% vertically)
+                // Position/size are authored in the Editor (ApprovalBarFill's RectTransform) —
+                // not overridden here, so manual layout tweaks persist into Play.
                 var rt = _barFill.rectTransform;
-                rt.anchorMin = new Vector2(0.05f, 0.05f);
-                rt.anchorMax = new Vector2(0.95f, 0.13f);
-                rt.offsetMin = rt.offsetMax = Vector2.zero;
 
-                // Dark background behind the bar
+                // Dark background behind the bar — mirrors whatever rect the Editor sets.
                 var bgGO = new GameObject("ApprovalBarBG");
                 bgGO.layer = 5;
                 var bgRt = bgGO.AddComponent<RectTransform>();
                 bgGO.transform.SetParent(_barFill.transform.parent, false);
                 bgGO.transform.SetSiblingIndex(_barFill.transform.GetSiblingIndex());
-                bgRt.anchorMin = new Vector2(0.05f, 0.05f);
-                bgRt.anchorMax = new Vector2(0.95f, 0.13f);
-                bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
+                bgRt.anchorMin        = rt.anchorMin;
+                bgRt.anchorMax        = rt.anchorMax;
+                bgRt.offsetMin        = rt.offsetMin;
+                bgRt.offsetMax        = rt.offsetMax;
+                bgRt.anchoredPosition = rt.anchoredPosition;
+                bgRt.sizeDelta        = rt.sizeDelta;
                 bgGO.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 1f);
             }
 
-            // ── Emotion name — large, centered, upper zone ────────────────────
-            //   ★ FELIZ ★  at 80% vertical
-            StyleText(_emotionText, 68, Color.white,
-                new Vector2(0.5f, 0.80f), new Vector2(700, 95));
+            // ── Emotion name — large, on the script paper (right side) ────────
+            //   ★ FELIZ ★  above the emotion icon
+            StyleText(_emotionText, 54, Color.white,
+                new Vector2(0.865f, 0.72f), new Vector2(460, 90));
             if (_emotionText != null) _emotionText.fontStyle = FontStyles.Bold;
 
-            // ── Next emotion — smaller, just below ────────────────────────────
-            //   "Siguiente: ENOJADO"  at 72% vertical
+            // ── Next emotion — on the paper, below the icon ───────────────────
+            //   "Siguiente: ENOJADO"
             var nextLabel = _progressText != null
                 ? GameObject.Find("NextEmotionText")?.GetComponent<TextMeshProUGUI>()
                 : null;
-            StyleText(nextLabel, 28, new Color(0f, 0.706f, 1f, 1f),  // #00B4FF
-                new Vector2(0.5f, 0.72f), new Vector2(500, 50));
+            StyleText(nextLabel, 26, new Color(0f, 0.706f, 1f, 1f),  // #00B4FF
+                new Vector2(0.865f, 0.44f), new Vector2(400, 50));
 
-            // ── Timer — right of bar, changes color near zero ─────────────────
-            StyleText(_timerText, 42, _timerNormal,
-                new Vector2(0.92f, 0.09f), new Vector2(110, 55));
-            if (_timerText != null) _timerText.alignment = TextAlignmentOptions.Right;
+            // ── Timer — changes color near zero. Position/size set in the Editor.
+            StyleTextCosmetic(_timerText, 42, _timerNormal, TextAlignmentOptions.Center);
 
-            // ── Progress — left of bar ────────────────────────────────────────
-            StyleText(_progressText, 26, new Color(0.67f, 0.67f, 0.67f, 1f), // #AAAAAA
-                new Vector2(0.08f, 0.09f), new Vector2(110, 40));
-            if (_progressText != null) _progressText.alignment = TextAlignmentOptions.Left;
+            // ── Progress — count label. Position/size set in the Editor.
+            StyleTextCosmetic(_progressText, 36, new Color(0.67f, 0.67f, 0.67f, 1f), // #AAAAAA
+                TextAlignmentOptions.Center);
+
+            // ── Lives — top center ────────────────────────────────────────────
+            if (_livesText == null)
+            {
+                var canvas = FindCanvasInScene();
+                if (canvas != null)
+                {
+                    var go = new GameObject("LivesText");
+                    go.layer = 5;
+                    go.AddComponent<RectTransform>();
+                    go.transform.SetParent(_gamePanel != null ? _gamePanel.transform : canvas.transform, false);
+                    _livesText = go.AddComponent<TextMeshProUGUI>();
+                }
+            }
+            StyleText(_livesText, 36, new Color(1f, 0.3f, 0.3f, 1f),
+                new Vector2(0.5f, 0.95f), new Vector2(160, 50));
+            if (_livesText != null) _livesText.alignment = TextAlignmentOptions.Center;
         }
 
         private static void StyleText(TextMeshProUGUI tmp, float size, Color color,
@@ -469,6 +568,20 @@ namespace ARcadeRush.Minigames.SceneDirector
             rt.anchorMin = rt.anchorMax = anchor;
             rt.sizeDelta  = sizePixels;
             rt.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>
+        /// Applies font size/color/alignment only — leaves the RectTransform
+        /// (anchors, size, position) as authored in the Editor, so manual
+        /// layout edits in the scene persist into Play.
+        /// </summary>
+        private static void StyleTextCosmetic(TextMeshProUGUI tmp, float size, Color color,
+            TextAlignmentOptions alignment)
+        {
+            if (tmp == null) return;
+            tmp.fontSize  = size;
+            tmp.color     = color;
+            tmp.alignment = alignment;
         }
 
         // ── Menu panels ───────────────────────────────────────────────────────
@@ -511,10 +624,34 @@ namespace ARcadeRush.Minigames.SceneDirector
             rt.offsetMin = rt.offsetMax = Vector2.zero;
             rt.localScale = Vector3.one;
 
-            // Background — solid dark fill
+            // Background — curtain image (falls back to solid dark if the sprite is missing)
             var bg = panel.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0.031f, 1f); // fully opaque
+            var curtainBg = LoadCurtainSprite();
+            if (curtainBg != null)
+            {
+                bg.sprite = curtainBg;
+                bg.type   = Image.Type.Simple;
+                bg.color  = Color.white;
+            }
+            else
+            {
+                bg.color = new Color(0f, 0f, 0.031f, 1f); // fully opaque fallback
+            }
             bg.raycastTarget = true;
+
+            // Dim overlay so the title/buttons stay readable over the curtain art.
+            if (curtainBg != null)
+            {
+                var dimGO = new GameObject("PanelDim");
+                dimGO.layer = 5;
+                var drt = dimGO.AddComponent<RectTransform>();
+                dimGO.transform.SetParent(panel.transform, false);
+                drt.anchorMin = Vector2.zero; drt.anchorMax = Vector2.one;
+                drt.offsetMin = drt.offsetMax = Vector2.zero;
+                var dimImg = dimGO.AddComponent<Image>();
+                dimImg.color = new Color(0f, 0f, 0f, 0.45f);
+                dimImg.raycastTarget = false;
+            }
 
             // Title
             titleTmp = MakeTMP(panel, "PanelTitle", title, 52, Color.white,
@@ -554,6 +691,13 @@ namespace ARcadeRush.Minigames.SceneDirector
         }
 
         // ── UI helpers ────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Reuses the curtain sprite already loaded in the scene (on CurtainPanel's Image).
+        /// Runtime-safe — no AssetDatabase/Resources dependency. Null if not found.
+        /// </summary>
+        private static Sprite LoadCurtainSprite()
+            => GameObject.Find("CurtainPanel")?.GetComponentInChildren<Image>(true)?.sprite;
 
         private static GameObject FindCanvasInScene()
         {

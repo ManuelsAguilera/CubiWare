@@ -45,7 +45,7 @@ namespace ARcadeRush.Minigames.SceneDirector
         [SerializeField] private TextMeshProUGUI _progressText;
         [Tooltip("Icon swapped per required emotion. Assign one Image; swap Sprite from _emotionSprites.")]
         [SerializeField] private Image           _emotionIcon;
-        [Tooltip("Sprites indexed by EmotionLabel cast to int: [0]=Neutral [1]=Happy [2]=Surprised [3]=Angry.")]
+        [Tooltip("Sprites indexed by EmotionLabel cast to int: [0]=Neutral [1]=Happy [2]=Surprised [3]=Angry [4]=Disgust [5]=Fear [6]=Sad. Indices 4-6 may stay null until art exists.")]
         [SerializeField] private Sprite[]        _emotionSprites;
         [Tooltip("Text that shows the LLM-generated intro. Displayed before countdown starts.")]
         [SerializeField] private TextMeshProUGUI _introText;
@@ -67,6 +67,14 @@ namespace ARcadeRush.Minigames.SceneDirector
             new ScriptElement { RequiredEmotion = EmotionLabel.Happy,     TimeLimit = 5f },
             new ScriptElement { RequiredEmotion = EmotionLabel.Surprised, TimeLimit = 5f },
             new ScriptElement { RequiredEmotion = EmotionLabel.Angry,     TimeLimit = 5f },
+        };
+
+        // ── Active emotion pool ─────────────────────────────────────────────────────
+        // Emotions that currently have icon sprites AND reliable detection.
+        // Expand this when Disgust/Fear/Sad sprites exist (sprite indices 4-6).
+        private static readonly EmotionLabel[] _activePool =
+        {
+            EmotionLabel.Happy, EmotionLabel.Surprised, EmotionLabel.Angry,
         };
 
         // ── State ─────────────────────────────────────────────────────────────────
@@ -151,18 +159,31 @@ namespace ARcadeRush.Minigames.SceneDirector
         /// Time limit is linearly interpolated from _timeLimitStart to _timeLimitEnd
         /// across the sequence.
         /// </summary>
-        public List<ScriptElement> GenerateLocalSequence()
+        /// <param name="timePerElement">
+        /// Seconds per element. Pass a positive value to override the serialized curve
+        /// (avoids Unity YAML cache issues). If ≤ 0, falls back to _timeLimitStart/_timeLimitEnd lerp.
+        /// </param>
+        public List<ScriptElement> GenerateLocalSequence(float timePerElement = -1f)
         {
             var list = new List<ScriptElement>(_sequenceLength);
-            // Cycle through non-Neutral emotions: Happy(1), Surprised(2), Angry(3)
+            // Random pick limited to the active pool (emotions with sprites + reliable detection).
+            EmotionLabel previous = EmotionLabel.Neutral;
             for (int i = 0; i < _sequenceLength; i++)
             {
                 float t = _sequenceLength > 1 ? (float)i / (_sequenceLength - 1) : 0f;
-                float timeLimit = Mathf.Lerp(_timeLimitStart, _timeLimitEnd, t);
+                float timeLimit = timePerElement > 0f
+                    ? timePerElement
+                    : Mathf.Lerp(_timeLimitStart, _timeLimitEnd, t);
+                EmotionLabel emotion;
+                do
+                {
+                    emotion = _activePool[UnityEngine.Random.Range(0, _activePool.Length)];
+                } while (_activePool.Length > 1 && emotion == previous); // avoid consecutive repeats
+                previous = emotion;
                 list.Add(new ScriptElement
                 {
-                    RequiredEmotion = (EmotionLabel)(1 + (i % 3)), // 1=Happy, 2=Surprised, 3=Angry
-                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 8f)
+                    RequiredEmotion = emotion,
+                    TimeLimit = Mathf.Clamp(timeLimit, 3f, 60f)
                 });
             }
             return list;
@@ -216,14 +237,14 @@ namespace ARcadeRush.Minigames.SceneDirector
         private void RefreshUI()
         {
             if (_currentEmotionText != null)
-                _currentEmotionText.text = IsActive ? CurrentElement.RequiredEmotion.ToString().ToUpper() : "—";
+                _currentEmotionText.text = IsActive ? EmotionEs.ToSpanish(CurrentElement.RequiredEmotion) : "—";
 
             if (_nextEmotionText != null)
             {
                 int nextIndex = _currentIndex + 1;
                 _nextEmotionText.text = nextIndex < _sequence.Count
-                    ? $"Next: {_sequence[nextIndex].RequiredEmotion}"
-                    : "Next: —";
+                    ? $"Siguiente: {EmotionEs.ToSpanish(_sequence[nextIndex].RequiredEmotion)}"
+                    : ""; // last element → hide "Siguiente" instead of showing a dash
             }
 
             if (_progressText != null)
