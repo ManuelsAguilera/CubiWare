@@ -12,12 +12,18 @@ public class MainMenuNinjaFruit : MonoBehaviour
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text subtitleText;
     [SerializeField] private Button playButton;
+    [SerializeField] private Button _backButton;
 
     void Start()
     {
         if (playButton != null)
         {
             playButton.onClick.AddListener(StartGame);
+        }
+
+        if (_backButton != null)
+        {
+            _backButton.onClick.AddListener(GoBackToMainMenu);
         }
 
         SetAlpha(titleText, 0f);
@@ -76,6 +82,18 @@ public class MainMenuNinjaFruit : MonoBehaviour
         else
         {
             SceneManager.LoadScene(gameSceneName);
+        }
+    }
+
+    public void GoBackToMainMenu()
+    {
+        if (SceneLoader.Instance != null)
+        {
+            SceneLoader.Instance.LoadSceneAsync("MainMenu");
+        }
+        else
+        {
+            SceneManager.LoadScene("MainMenu");
         }
     }
 }
