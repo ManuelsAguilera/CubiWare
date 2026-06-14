@@ -493,8 +493,8 @@ namespace ARcadeRush.Minigames.SceneDirector
             if (_barFill != null)
             {
                 _barFill.type       = Image.Type.Filled;
-                _barFill.fillMethod = Image.FillMethod.Horizontal;
-                _barFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+                _barFill.fillMethod = Image.FillMethod.Vertical;
+                _barFill.fillOrigin = (int)Image.OriginVertical.Bottom;
                 // White: the segmented red→green sprite provides the color.
                 _barFill.color      = Color.white;
 
