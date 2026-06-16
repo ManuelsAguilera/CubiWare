@@ -209,13 +209,18 @@ namespace CubiWare.Core
             if (!File.Exists(pythonExe))
             {
                 _logger.LogInfo("BootstrapManager", "Python venv not found. Running first-time setup (this may take a few minutes)...");
-                yield return StartCoroutine(EnsureVenvAsync(serverDir, pythonExe));
+                ARcadeRush.UI.LoadingScreenManager.Instance?.SetStep(9, TOTAL_STEPS,
+                    "Preparando entorno de emociones (primera vez, puede tardar)...");
+                yield return StartCoroutine(RunSetupScriptAsync(serverDir));
 
                 // Re-resolve after creation
                 pythonExe = File.Exists(pythonLinux) ? pythonLinux : pythonWin;
                 if (!File.Exists(pythonExe))
                 {
-                    _logger.LogError("BootstrapManager", "Venv creation failed. Is Python 3.10+ installed and in PATH?", ServiceErrorCode.NotInitialized);
+                    _logger.LogError("BootstrapManager",
+                        "El entorno de Python no se pudo preparar. Revisa la ventana de instalación " +
+                        "(en Windows se necesita Python 3.12 / conexión a internet). Emotion detection unavailable.",
+                        ServiceErrorCode.NotInitialized);
                     yield break;
                 }
             }
@@ -261,53 +266,52 @@ namespace CubiWare.Core
             }
         }
 
-        private IEnumerator EnsureVenvAsync(string serverDir, string pythonExeTarget)
-        {
-            string systemPython = GetSystemPython();
-            string venvPath     = Path.Combine(serverDir, "venv");
-            string reqFile      = Path.Combine(serverDir, "requirements.txt");
-
-            // Step A: create venv
-            _logger.LogInfo("BootstrapManager", $"Creating venv at: {venvPath}");
-            yield return StartCoroutine(RunProcessCoroutine(systemPython, $"-m venv \"{venvPath}\"", serverDir));
-
-            if (!File.Exists(pythonExeTarget))
-            {
-                _logger.LogError("BootstrapManager", "Venv creation failed.", ServiceErrorCode.NotInitialized);
-                yield break;
-            }
-
-            // Step B: install dependencies
-            _logger.LogInfo("BootstrapManager", "Installing Python dependencies — this takes a few minutes on first run...");
-            yield return StartCoroutine(RunProcessCoroutine(pythonExeTarget, $"-m pip install -r \"{reqFile}\"", serverDir));
-
-            _logger.LogInfo("BootstrapManager", "Python environment ready.");
-        }
-
-        private IEnumerator RunProcessCoroutine(string exe, string args, string workDir)
+        /// <summary>
+        /// Runs the platform setup script (setup.ps1 on Windows, setup.sh on Linux/macOS)
+        /// to prepare the Python venv + dependencies. The script is launched in a VISIBLE
+        /// window so the user can see the install message/progress (and, on Windows, the
+        /// optional Python 3.12 install via winget). Waits for it to finish before returning.
+        /// The server itself is launched separately by LaunchPythonServerAsync so Unity keeps
+        /// a handle for clean shutdown.
+        /// </summary>
+        private IEnumerator RunSetupScriptAsync(string serverDir)
         {
             bool done = false;
-            int exitCode = -1;
+            int  exitCode = -1;
 
+            bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer
+                          || Application.platform == RuntimePlatform.WindowsEditor;
+
+            string fileName;
+            string arguments;
+            if (isWindows)
+            {
+                string scriptPath = Path.Combine(serverDir, "setup.ps1");
+                fileName  = "powershell.exe";
+                arguments = $"-ExecutionPolicy Bypass -NoProfile -File \"{scriptPath}\"";
+            }
+            else
+            {
+                string scriptPath = Path.Combine(serverDir, "setup.sh");
+                fileName  = "/usr/bin/env";
+                arguments = $"bash \"{scriptPath}\"";
+            }
+
+            // UseShellExecute = true + CreateNoWindow = false → visible window so the
+            // user sees the (potentially multi-minute) pip install and any install prompt.
             var psi = new ProcessStartInfo
             {
-                FileName         = exe,
-                Arguments        = args,
-                WorkingDirectory = workDir,
-                UseShellExecute  = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                CreateNoWindow   = true,
+                FileName         = fileName,
+                Arguments        = arguments,
+                WorkingDirectory = serverDir,
+                UseShellExecute  = true,
+                CreateNoWindow   = false,
             };
 
             try
             {
-                var p = new Process { StartInfo = psi };
-                p.OutputDataReceived += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) _logger?.LogInfo("Bootstrap:Python", e.Data); };
-                p.ErrorDataReceived  += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) _logger?.LogWarning("Bootstrap:Python", e.Data); };
+                var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
                 p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
 
                 var thread = new System.Threading.Thread(() =>
                 {
@@ -321,14 +325,16 @@ namespace CubiWare.Core
             }
             catch (Exception e)
             {
-                _logger.LogError("Bootstrap:Python", $"Process failed: {e.Message}", ServiceErrorCode.NotInitialized);
+                _logger.LogError("Bootstrap:Setup", $"Setup script failed to start: {e.Message}", ServiceErrorCode.NotInitialized);
                 yield break;
             }
 
             while (!done) yield return null;
 
             if (exitCode != 0)
-                _logger.LogWarning("Bootstrap:Python", $"Process exited with code {exitCode}");
+                _logger.LogWarning("Bootstrap:Setup", $"Setup script exited with code {exitCode} — emotion detection may be unavailable.");
+            else
+                _logger.LogInfo("BootstrapManager", "Python environment ready.");
         }
 
         private IEnumerator CheckServerHealth(Action<bool> callback)
@@ -337,28 +343,6 @@ namespace CubiWare.Core
             req.timeout = 1;
             yield return req.SendWebRequest();
             callback(req.result == UnityWebRequest.Result.Success);
-        }
-
-        private static string GetSystemPython()
-        {
-            // Try python3 first (Linux/macOS), fall back to python (Windows)
-            foreach (var candidate in new[] { "python3", "python" })
-            {
-                try
-                {
-                    var p = Process.Start(new ProcessStartInfo(candidate, "--version")
-                    {
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError  = true,
-                        CreateNoWindow = true,
-                    });
-                    p?.WaitForExit(2000);
-                    if (p?.ExitCode == 0) return candidate;
-                }
-                catch { }
-            }
-            return "python3";
         }
 
         private void KillPythonServer()

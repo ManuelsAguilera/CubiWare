@@ -10,7 +10,29 @@ Python server que recibe frames JPEG desde Unity vía WebSocket y clasifica emoc
 > [!WARNING]
 > Versiones más recientes como **Python 3.14** no están soportadas actualmente debido a la falta de compatibilidad de TensorFlow en Windows.
 
-## Setup
+## Arranque automático (recomendado)
+
+**No necesitas ejecutar nada a mano.** Al entrar en Unity (Play Mode o build),
+`BootstrapManager` prepara y lanza el servidor automáticamente:
+
+- En la **primera ejecución** corre el script de setup en una ventana visible
+  (`setup.ps1` en Windows, `setup.sh` en Linux): crea el `venv` e instala las
+  dependencias. Tarda varios minutos y requiere **conexión a internet**
+  (DeepFace además descarga sus modelos, ~500 MB).
+- En Windows, si **no** hay Python 3.10–3.12, el script avisa qué va a instalar
+  y por qué, y luego instala **Python 3.12** con `winget install Python.Python.3.12`.
+- En ejecuciones posteriores detecta el `venv` y lanza el servidor directamente
+  (oculto; su salida aparece en la consola de Unity).
+- El servidor se apaga solo al cerrar Unity (watchdog por `--parent-pid`).
+
+> **Requisito Windows:** tener `winget` disponible o, en su defecto, Python 3.12
+> instalado manualmente. Versiones 3.13/3.14 **no** son compatibles (TensorFlow).
+
+---
+
+## Setup manual (fallback / desarrollo)
+
+Solo necesario si quieres preparar el entorno tú mismo o el arranque automático falla.
 
 1. **Crear el entorno virtual (Windows):**
    ```bash
@@ -25,7 +47,7 @@ Python server que recibe frames JPEG desde Unity vía WebSocket y clasifica emoc
 
 > **Primera ejecución:** DeepFace descarga los modelos automáticamente (~500 MB). Asegúrate de tener conexión a internet.
 
-## Ejecutar
+## Ejecutar manualmente
 
 ```bash
 python emotion_server.py

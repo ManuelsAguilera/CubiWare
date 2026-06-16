@@ -71,14 +71,47 @@ except Exception as e:
 
 
 
+def _parent_process_alive(pid: int) -> bool:
+    """Cross-platform existence check for the parent (Unity) process.
+
+    On Windows, os.kill(pid, 0) does NOT check existence — it routes to
+    TerminateProcess, which would try to kill the parent. So on Windows we
+    open the process by handle and inspect it instead. On POSIX, signal 0 is
+    a proper existence check.
+    """
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        # PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return False  # process gone (or no access — treat as gone)
+        try:
+            exit_code = wintypes.DWORD()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return exit_code.value == STILL_ACTIVE
+            return False
+        finally:
+            kernel32.CloseHandle(handle)
+    else:
+        try:
+            os.kill(pid, 0)  # signal 0 = existence check only
+            return True
+        except OSError:
+            return False
+
+
 def _start_parent_watchdog(pid: int):
     """Background thread: exits the server if the Unity process disappears."""
     def _watch():
         while True:
             time.sleep(2)
-            try:
-                os.kill(pid, 0)  # signal 0 = existence check only
-            except OSError:
+            if not _parent_process_alive(pid):
                 print(f"[EmotionServer] Unity process {pid} ended — shutting down.")
                 os._exit(0)
     threading.Thread(target=_watch, daemon=True).start()
